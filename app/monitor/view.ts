@@ -73,7 +73,8 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode } = {}) {
   function renderStatus() {
     const m = c.midi;
     if (mode === 'live') {
-      $('st-midi').textContent = 'ABLETON ▸ THIS TRACK';
+      const d = m as unknown as { inCount?: number; outCount?: number; lastIn?: string };
+      $('st-midi').textContent = m.status !== 'ready' ? 'ABLETON ▸ NO MAX LINK' : `ABLETON ▸ IN ${d.inCount ?? 0}${d.lastIn ? ` (${d.lastIn})` : ''} · OUT ${d.outCount ?? 0}`;
       $('st-sync').hidden = $('st-sound').hidden = true;
       return;
     }

@@ -2,8 +2,8 @@
  * MIDI inside Ableton (Max for Live). The page runs in the device's [jweb]; it talks to Max with
  * window.max.bindInlet / window.max.outlet:
  *   Max → page:  note <pitch> <velocity>  ·  tempo <bpm>  ·  liveplay <0|1>
- *   page → Max:  midi <status> <data1> <data2> <delayMs>   → [pipe] → [midiout]
- * The delay keeps the look-ahead scheduler's timing: events leave together and fire on time in Max.
+ *   page → Max:  midi <status> <data1> <data2>   → [iter] → [midiout]
+ * Scheduled events are held here with a timer until they're due, then sent.
  */
 import type { MidiIO, MidiCallbacks, MidiPort } from '../../explorer/midi';
 
@@ -20,13 +20,21 @@ export class MaxBridge implements MidiIO {
   readonly outputName = 'ABLETON';
   readonly hasOutput = true;
   private sounding = new Map<number, number>();
+  /** Diagnostics shown on screen: notes received from the track, messages sent to Live. */
+  inCount = 0;
+  outCount = 0;
+  lastIn = '';
 
   constructor(private cb: MidiCallbacks) {}
 
   async init() {
     const m = maxApi();
     if (!m) { this.status = 'unsupported'; return; }
-    m.bindInlet('note', (note, vel) => (vel > 0 ? this.cb.noteOn(note, vel, 0) : this.cb.noteOff(note, 0)));
+    m.bindInlet('note', (note, vel) => {
+      this.inCount++;
+      this.lastIn = `${note}/${vel}`;
+      if (vel > 0) this.cb.noteOn(note, vel, 0); else this.cb.noteOff(note, 0);
+    });
   }
   inputs(): MidiPort[] { return []; }
   outputs(): MidiPort[] { return []; }
@@ -48,8 +56,11 @@ export class MaxBridge implements MidiIO {
   }
   raw(data: number[], at?: number) {
     if (data.length !== 3) return; // clock/start/stop: Live is the clock here
-    const delay = at === undefined ? 0 : Math.max(0, Math.round((at - performance.now()) * 10) / 10);
-    maxApi()?.outlet('midi', data[0], data[1], data[2], delay);
+    const m = maxApi();
+    if (!m) return;
+    const go = () => { this.outCount++; m.outlet('midi', data[0], data[1], data[2]); };
+    const delay = at === undefined ? 0 : at - performance.now();
+    if (delay > 2) setTimeout(go, delay); else go();
   }
   panic() {
     for (const k of this.sounding.keys()) this.raw([0x80 | Math.floor(k / 128), k % 128, 0]);

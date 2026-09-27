@@ -72,16 +72,24 @@ export function buildDevice(htmlUrl) {
 
   const rOut = d.obj('r ---harmOut', 20, 220, 0, 1, { outlettype: [''] });
   const route = d.obj('route midi', 20, 260, 2, 2, { outlettype: ['', ''] });
-  const pipe = d.obj('pipe 0 0 0', 20, 300, 4, 3, { outlettype: ['int', 'int', 'int'] });
-  const pack = d.obj('pack 0 0 0', 20, 340, 3, 1, { outlettype: [''] });
   const iter = d.obj('iter', 20, 380, 1, 1, { outlettype: [''] });
   const out2 = d.obj('midiout', 20, 420, 1, 0);
   d.link(rOut, 0, route, 0);
-  d.link(route, 0, pipe, 0);
-  d.link(pipe, 2, pack, 2);
-  d.link(pipe, 1, pack, 1);
-  d.link(pipe, 0, pack, 0);
-  d.link(pack, 0, iter, 0);
+  d.link(route, 0, iter, 0);
+  // Activity lights on the device: IN = notes from the track reached the window, OUT = the window sent MIDI.
+  const light = (label, x) => {
+    const b = d.box('button', null, [x, 470, 24, 24], { numinlets: 1, numoutlets: 1, outlettype: ['bang'], presentation: 1, presentation_rect: [x === 20 ? 10 : 90, 140, 18, 18], blinkcolor: [1, 0.62, 0.17, 1], outlinecolor: [1, 0.62, 0.17, 0.6], bgcolor: [0.086, 0.039, 0.012, 1] });
+    d.box('comment', label, [x + 30, 470, 40, 20], { numinlets: 1, numoutlets: 0, presentation: 1, presentation_rect: [x === 20 ? 32 : 112, 140, 40, 18], fontsize: 10, fontname: 'Arial Bold', textcolor: [1, 0.62, 0.17, 1] });
+    return b;
+  };
+  const inLight = light('IN', 20);
+  const outLight = light('OUT', 120);
+  const tbIn = d.obj('t b', 120, 110, 1, 1, { outlettype: ['bang'] });
+  const tbOut = d.obj('t b', 120, 300, 1, 1, { outlettype: ['bang'] });
+  d.link(prep, 0, tbIn, 0);
+  d.link(tbIn, 0, inLight, 0);
+  d.link(route, 0, tbOut, 0);
+  d.link(tbOut, 0, outLight, 0);
   d.link(iter, 0, out2, 0);
 
   const dev = d.obj('live.thisdevice', 400, 20, 1, 3, { outlettype: ['bang', 'int', 'int'] });
@@ -126,7 +134,7 @@ export function buildDevice(htmlUrl) {
     activebgcolor: [0.086, 0.039, 0.012, 1], bgcolor: [0.086, 0.039, 0.012, 1], textcolor: [1, 0.62, 0.17, 1], activetextcolor: [0.086, 0.039, 0.012, 1], bordercolor: [1, 0.62, 0.17, 1],
   });
   const hint = d.box('comment', 'tempo & play follow Live', [800, 130, 170, 20], {
-    numinlets: 1, numoutlets: 0, presentation: 1, presentation_rect: [10, 116, 170, 20], fontsize: 10, fontname: 'Arial', textcolor: [1, 0.62, 0.17, 0.7],
+    numinlets: 1, numoutlets: 0, presentation: 1, presentation_rect: [10, 112, 170, 20], fontsize: 10, fontname: 'Arial', textcolor: [1, 0.62, 0.17, 0.7],
   });
   void title; void sub; void hint;
   const tb = d.obj('t b', 800, 170, 1, 1, { outlettype: ['bang'] });
