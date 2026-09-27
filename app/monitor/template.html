@@ -1,4 +1,4 @@
-<title>Harmonic Monitor</title>
+<title>Harmonique</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Righteous&family=Barlow+Semi+Condensed:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -51,7 +51,7 @@
 
   /* wordmark */
   .mark { position: relative; height: 96px; display: grid; place-items: center; }
-  .word { font: 400 92px/1 'Righteous', sans-serif; letter-spacing: .06em; color: transparent; -webkit-text-stroke: 2.2px var(--p); transform: skewX(-10deg); filter: var(--svg-glow); user-select: none; }
+  .word { font: 400 86px/1 'Righteous', sans-serif; letter-spacing: .06em; color: transparent; -webkit-text-stroke: 2.2px var(--p); transform: skewX(-10deg); filter: var(--svg-glow); user-select: none; }
   .sparks { position: absolute; inset: 0; pointer-events: none; filter: var(--svg-glow); }
 
   .main { flex-grow: 1; display: flex; gap: 34px; min-height: 0; margin-top: 6px; }
@@ -143,13 +143,13 @@
         </div>
 
         <div class="mark" aria-hidden="true">
-          <span class="word">HARMONIC</span>
+          <span class="word">HARMONIQUE</span>
           <svg class="sparks" width="1030" height="104" viewBox="0 0 1030 104">
             <g stroke="var(--p)" stroke-width="2.4" stroke-linecap="round" fill="none">
-              <path transform="translate(150 22)" d="M0 -14 L0 14 M-12 -7 L12 7 M-12 7 L12 -7"/>
-              <path transform="translate(70 64)" d="M0 -11 L0 11 M-9.5 -5.5 L9.5 5.5 M-9.5 5.5 L9.5 -5.5"/>
+              <path transform="translate(95 26)" d="M0 -14 L0 14 M-12 -7 L12 7 M-12 7 L12 -7"/>
+              <path transform="translate(40 72)" d="M0 -11 L0 11 M-9.5 -5.5 L9.5 5.5 M-9.5 5.5 L9.5 -5.5"/>
               <path transform="translate(515 8)" d="M0 -13 L0 13 M-11 -6.5 L11 6.5 M-11 6.5 L11 -6.5"/>
-              <path transform="translate(905 22)" d="M0 -14 L0 14 M-12 -7 L12 7 M-12 7 L12 -7"/>
+              <path transform="translate(965 26)" d="M0 -14 L0 14 M-12 -7 L12 7 M-12 7 L12 -7"/>
             </g>
           </svg>
         </div>
@@ -207,6 +207,7 @@
                   <span class="lbl">TEMPO</span>
                   <input class="bpm" id="bpm" type="number" min="40" max="240" step="1" aria-label="Tempo in BPM">
                   <span class="lbl">BPM</span>
+                  <span class="lbl" id="tempo-host" hidden>· FROM LIVE</span>
                   <span style="flex-grow:1"></span>
                   <button class="t" id="half" type="button" title="Half-time reading">÷2</button>
                   <button class="t" id="dbl" type="button" title="Double-time reading">×2</button>
@@ -259,6 +260,18 @@
           <li>Chord track: MIDI From = IAC Driver (Bus 1), <b>Ch. 1</b>, Monitor = In.</li>
           <li>Melody / bass track (KEYS PLAY → NOTES): MIDI From = IAC Driver (Bus 1), <b>Ch. 2</b>. Both tracks can stay armed: each only hears its own channel.</li>
         </ol>
+      </div>
+
+      <div class="panel" id="panel-intro" hidden role="dialog" aria-label="How to play" style="top:50%;left:50%;right:auto;transform:translate(-50%,-50%);width:520px;padding:26px 28px">
+        <h3 class="glow" style="font-size:22px">HARMONIQUE</h3>
+        <p>A chord instrument. Every key plays a chord that belongs to the key you pick, and the scope shows which chord sounds good next.</p>
+        <ol>
+          <li><b>Play</b> with your computer keys: <b>A S D F G H J K</b> (white), <b>W E T Y U</b> (black). Or tap the chords on the scope. A MIDI keyboard works too in Chrome.</li>
+          <li><b>Pick a key and scale</b> in the box on the right.</li>
+          <li><b>● REC</b>, play a few chords, then <b>■ STOP</b>: your loop repeats in time. Or open <b>IDEAS ▸</b> for famous progressions.</li>
+          <li>Turn on <b>EUCLIDEAN</b> and hold a chord to play it in a rhythm. Switch <b>KEYS PLAY</b> to <b>NOTES</b> to play a melody over your loop.</li>
+        </ol>
+        <button class="t big" id="intro-go" type="button" style="justify-self:start">▶ START PLAYING</button>
       </div>
 
       <div class="panel" id="panel-ideas" hidden role="dialog" aria-label="Ideas" style="top:auto;bottom:90px;left:60px;right:auto;width:470px">

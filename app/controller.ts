@@ -18,7 +18,7 @@ import {
   type Scale, type ChordSlot, type ScaleId, type ChordSize, type Spread, type Suggestion,
   type Pattern, type Take, type RawEvent, type Style, type Preset, type Quantize,
 } from '../engine';
-import { MidiBridge } from '../explorer/midi';
+import { MidiBridge, type MidiIO, type MidiCallbacks } from '../explorer/midi';
 import { Synth } from './synth';
 
 export type RecState = 'idle' | 'armed' | 'recording';
@@ -71,7 +71,9 @@ export class Controller {
   playing = false;
   rec: RecState = 'idle';
 
-  readonly midi: MidiBridge;
+  readonly midi: MidiIO;
+  /** The host owns the tempo (Ableton via Max for Live): recordings keep it instead of detecting one. */
+  tempoLocked = false;
   readonly synth = new Synth();
 
   private held = new Map<string, Held>();
@@ -87,8 +89,8 @@ export class Controller {
   private seq = 0;
   private listeners = new Set<() => void>();
 
-  constructor() {
-    this.midi = new MidiBridge({
+  constructor(makeMidi: (cb: MidiCallbacks) => MidiIO = (cb) => new MidiBridge(cb)) {
+    this.midi = makeMidi({
       noteOn: (note, vel) => this.keyDown(`midi:${note}`, note, vel),
       noteOff: (note) => this.keyUp(`midi:${note}`),
       devicesChanged: () => this.notify(),
@@ -223,7 +225,7 @@ export class Controller {
     this.rec = 'idle';
     const events = this.recEvents.sort((a, b) => a.startMs - b.startMs);
     if (!events.length) return;
-    const take = takeFromRecording(events, now - this.recT0, this.euclidOn ? this.bpm : undefined);
+    const take = takeFromRecording(events, now - this.recT0, this.euclidOn || this.tempoLocked ? this.bpm : undefined);
     this.rawTake = take;
     this.loopBars = 'auto';
     this.derive();
@@ -319,7 +321,7 @@ export class Controller {
     const name = `${this.keyName} ${this.takeName} ${Math.round(this.bpm)}bpm`;
     return {
       bytes: writeMidi(takeToMidiEvents(this.take), this.take.bpm, name),
-      filename: 'harmonic-' + name.toLowerCase().replace(/[^a-z0-9#♭♯]+/g, '-').replace(/^-|-$/g, '') + '.mid',
+      filename: 'harmonique-' + name.toLowerCase().replace(/[^a-z0-9#♭♯]+/g, '-').replace(/^-|-$/g, '') + '.mid',
     };
   }
 

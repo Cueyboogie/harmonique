@@ -513,7 +513,7 @@ function saveMidi() {
   const blob = new Blob([writeMidi(events, prog.bpm, name)], { type: 'audio/midi' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `harmonic-${name.replace(/[^\w#♭♯ -]+/g, '').replace(/\s+/g, '-').toLowerCase()}.mid`;
+  a.download = `harmonique-${name.replace(/[^\w#♭♯ -]+/g, '').replace(/\s+/g, '-').toLowerCase()}.mid`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }

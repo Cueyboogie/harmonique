@@ -19,7 +19,26 @@ export interface MidiCallbacks {
   devicesChanged(): void;
 }
 
-export class MidiBridge {
+/** What the app needs from a MIDI connection: Web MIDI in the browser, or the Max for Live host. */
+export interface MidiIO {
+  status: 'unsupported' | 'blocked' | 'ready' | 'pending';
+  inputId: string;
+  outputId: string;
+  readonly outputName: string;
+  readonly hasOutput: boolean;
+  init(): Promise<void>;
+  inputs(): MidiPort[];
+  outputs(): MidiPort[];
+  setInput(id: string): void;
+  setOutput(id: string): void;
+  isLoopInput(id: string): boolean;
+  send(note: number, velocity: number, ch?: number, at?: number): void;
+  release(note: number, ch?: number, at?: number): void;
+  raw(data: number[], at?: number): void;
+  panic(): void;
+}
+
+export class MidiBridge implements MidiIO {
   private access: MIDIAccess | null = null;
   private out: MIDIOutput | null = null;
   inputId = 'all';

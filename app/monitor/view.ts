@@ -32,7 +32,10 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 const up = (s: string) => s.toUpperCase();
 
-export function mountMonitor(c: Controller) {
+export type HostMode = 'app' | 'web' | 'live';
+
+export function mountMonitor(c: Controller, opts: { mode?: HostMode } = {}) {
+  const mode: HostMode = opts.mode ?? 'app';
   let kbOctave = 4;
   let phos = 0;
   try { phos = Math.max(0, PHOSPHORS.findIndex((x) => x.name === localStorage.getItem('harmonic.phosphor'))); } catch { /* storage unavailable */ }
@@ -69,6 +72,13 @@ export function mountMonitor(c: Controller) {
   /* ---------- render ---------- */
   function renderStatus() {
     const m = c.midi;
+    if (mode === 'live') {
+      $('st-midi').textContent = 'ABLETON ▸ THIS TRACK';
+      $('st-sync').hidden = $('st-sound').hidden = true;
+      return;
+    }
+    $('st-sync').hidden = mode === 'web';
+    if (mode === 'web' && m.status !== 'ready') { $('st-midi').textContent = 'MIDI KEYBOARD ▸ OPTIONAL (CHROME)'; $('st-sound').textContent = `SOUND ${c.synth.enabled ? 'ON' : 'OFF'}`; return; }
     $('st-midi').textContent = m.status === 'ready'
       ? `MIDI ▸ ${m.outputName ? up(m.outputName) : 'NO OUTPUT'}`
       : m.status === 'pending' ? 'MIDI ▸ ALLOW ACCESS' : 'MIDI ▸ LOCAL APP ONLY';
@@ -169,13 +179,15 @@ export function mountMonitor(c: Controller) {
     ($('ideas') as HTMLButtonElement).disabled = false;
     const save = $<HTMLButtonElement>('save');
     save.disabled = !c.take;
-    save.hidden = window.self !== window.top; // downloads are blocked inside shared pages
+    save.hidden = window.self !== window.top || mode === 'live'; // downloads are blocked inside shared pages; in Live, record the track
   }
 
   function renderTempo() {
     const bpm = $<HTMLInputElement>('bpm');
     if (document.activeElement !== bpm) bpm.value = String(Math.round(c.bpm));
-    $('half').hidden = $('dbl').hidden = !c.take;
+    bpm.readOnly = mode === 'live';
+    $('tempo-host').hidden = mode !== 'live';
+    $('half').hidden = $('dbl').hidden = !c.take || mode === 'live';
   }
 
   function renderScope() {
@@ -332,7 +344,11 @@ export function mountMonitor(c: Controller) {
   $('st-sound').onclick = () => { c.synth.enabled = !c.synth.enabled; if (!c.synth.enabled) c.synth.allOff(); render(); };
   $('st-phos').onclick = () => { phos = (phos + 1) % PHOSPHORS.length; applyPhosphor(); };
   const openPanel = (id: string) => { for (const pid of ['panel-midi', 'panel-ideas']) $(pid).hidden = pid !== id || !$(pid).hidden; };
-  $('st-midi').onclick = () => openPanel('panel-midi');
+  $('st-midi').onclick = () => { if (mode !== 'live') openPanel('panel-midi'); };
+  if (mode === 'web') {
+    $('panel-intro').hidden = false;
+    $('intro-go').onclick = () => { c.synth.unlock(); $('panel-intro').hidden = true; };
+  }
   $('ideas').onclick = () => openPanel('panel-ideas');
   $('style').onclick = () => c.set('style', c.style === 'pop' ? 'bach' : 'pop');
   $('generate').onclick = () => { c.generate(); $('panel-ideas').hidden = true; };
@@ -361,7 +377,7 @@ export function mountMonitor(c: Controller) {
     if (st) { toggleStep(Number(st.getAttribute('data-step'))); return; }
     const pr = t.closest<HTMLElement>('[data-preset]');
     if (pr) { c.loadPreset(PRESETS[Number(pr.dataset.preset)]); $('panel-ideas').hidden = true; return; }
-    if (t.closest('[data-close]')) { $('panel-midi').hidden = $('panel-ideas').hidden = true; }
+    if (t.closest('[data-close]')) { $('panel-midi').hidden = $('panel-ideas').hidden = $('panel-intro').hidden = true; }
   });
 
   document.addEventListener('pointerdown', (e) => {
@@ -386,7 +402,7 @@ export function mountMonitor(c: Controller) {
     if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
     const tag = (e.target as HTMLElement).tagName;
     if (tag === 'INPUT' || tag === 'SELECT') return;
-    if (e.code === 'Escape') { $('panel-midi').hidden = $('panel-ideas').hidden = true; return; }
+    if (e.code === 'Escape') { $('panel-midi').hidden = $('panel-ideas').hidden = $('panel-intro').hidden = true; return; }
     if (e.code === 'Space' && (e.target as HTMLElement) === document.body) { e.preventDefault(); c.playing ? c.stop() : c.play(); return; }
     if (e.code === 'KeyZ' || e.code === 'KeyX') { kbOctave = Math.max(1, Math.min(7, kbOctave + (e.code === 'KeyX' ? 1 : -1))); return; }
     const i = COMPUTER_KEYS.indexOf(e.code);

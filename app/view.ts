@@ -61,7 +61,7 @@ export function mountView(c: Controller) {
       $('midi-fields').hidden = false;
       $('midi-note').hidden = true;
       setOptions($<HTMLSelectElement>('midi-in'), `<option value="all">All inputs</option>` + m.inputs().map((p) =>
-        `<option value="${esc(p.id)}" ${m.isLoopInput(p.id) ? 'disabled' : ''}>${esc(p.name)}${m.isLoopInput(p.id) ? ' (Harmonic output)' : ''}</option>`).join(''), m.inputId);
+        `<option value="${esc(p.id)}" ${m.isLoopInput(p.id) ? 'disabled' : ''}>${esc(p.name)}${m.isLoopInput(p.id) ? ' (Harmonique output)' : ''}</option>`).join(''), m.inputId);
       setOptions($<HTMLSelectElement>('midi-out'), `<option value="">None</option>` + m.outputs().map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join(''), m.outputId);
     }
     const snd = $('sound');

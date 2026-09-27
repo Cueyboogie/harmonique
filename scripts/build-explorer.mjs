@@ -5,6 +5,7 @@
 import { build } from 'esbuild';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { buildDevice } from './m4l-device.mjs';
 
 execSync('npx vitest run --reporter=json --outputFile=.vitest/report.json', { stdio: 'ignore' });
 const report = JSON.parse(readFileSync('.vitest/report.json', 'utf8'));
@@ -29,4 +30,17 @@ writeFileSync('dist/local/orbit.html', standalone(app));
 const explorer = await bundle('explorer/app.ts', 'explorer/template.html');
 writeFileSync('dist/scale-explorer.html', explorer);
 writeFileSync('dist/local/explorer.html', standalone(explorer));
+// Portfolio / public web version: sound on, a short how-to on open, no Ableton sync.
+mkdirSync('dist/web', { recursive: true });
+const web = await bundle('app/web/main.ts', 'app/monitor/template.html');
+writeFileSync('dist/web/index.html', standalone(web).replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<meta name="description" content="Harmonique: a chord instrument you can play in your browser.">'));
+
+// Max for Live device: the page (loaded by the device's [jweb]) + the .amxd.
+// The device points at the page's absolute path on Diego's Mac (override with HARMONIQUE_ROOT).
+mkdirSync('dist/m4l', { recursive: true });
+const m4l = await bundle('app/m4l/main.ts', 'app/monitor/template.html');
+writeFileSync('dist/m4l/harmonique-m4l.html', standalone(m4l));
+const root = process.env.HARMONIQUE_ROOT ?? '/Users/diegocuevas/Documents/harmonic';
+writeFileSync('dist/m4l/Harmonique.amxd', buildDevice(`file://${root}/dist/m4l/harmonique-m4l.html`));
+
 console.log(`built monitor (${(monitor.length / 1024).toFixed(1)} KB) + orbit + explorer · ${report.numPassedTests} tests`);
