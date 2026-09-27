@@ -40,7 +40,14 @@
 - Architecture: `app/controller.ts` = all behaviour (no UI); `app/view.ts` = the H layout. A new look = a new view file.
 - Shared page: https://claude.ai/artifact/M5U3XcqW5RDWPNyzKYyuHe · Mac: http://localhost:5173 (explorer at /explorer)
 - 349 tests.
-- Next look being explored: backlit CRT / patient-monitor style, two colours (Diego's reference).
+- **Look: backlit CRT monitor, two colours (Diego likes it).** Not a literal heart monitor: the aesthetic + a clear layout. I = first take (keep). J = clear layout: header settings (Key/Scale/Chords/Sync with ◂ ▸), 01 Play (keyboard is where you pick chords, numbered hints + Try next), tempo box, 02 Rhythm (optional; the pulse trace draws the real pattern), 03 Loop. "Harmonic" is a placeholder name.
+
+## Built (session 4)
+- **Monitor look (I) is now a working app view** (`app/monitor/`), the default at http://localhost:5173 (Orbit look at /orbit, explorer at /explorer). Shared page: https://claude.ai/artifact/T7CsaJw5YRnk2XxmoKKciL
+  - Big "C · MAJOR" = key/scale (◂ ▸); sub line = chord size · voice leading · spread · inversion (click to cycle)
+  - LOOP trace = your take (steps with each chord, sweep = playhead); EUCLIDEAN trace = real pattern (spike per hit, tap the ticks to edit), steppers + groove + step length + note length
+  - Tempo box (type BPM, ÷2 ×2), NOW / NEXT / ODDS; SCOPE = playable chord circle with hints; IDEAS + MIDI panels; phosphor colour switch
+  - "Rhythm" renamed **Euclidean** everywhere.
 
 ## Next
 1. **Diego listens:** presets, Generate (Pop vs Bach, Tension, Color), hints, Smooth on/off. What sounds great, what doesn't.

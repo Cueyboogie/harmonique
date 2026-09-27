@@ -1,5 +1,6 @@
 // Bundles the apps into single self-contained HTML files.
-//   app/       → dist/harmonic.html (shared page) + dist/local/index.html (Mac app, MIDI)
+//   app/monitor → dist/harmonic-monitor.html + dist/local/index.html (the Mac app's main look)
+//   app/        → dist/harmonic.html (Orbit on cream) + dist/local/orbit.html
 //   explorer/  → dist/scale-explorer.html + dist/local/explorer.html (engine review tool)
 import { build } from 'esbuild';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -19,10 +20,13 @@ async function bundle(entry, template) {
 }
 
 mkdirSync('dist/local', { recursive: true });
+const monitor = await bundle('app/monitor/main.ts', 'app/monitor/template.html');
+writeFileSync('dist/harmonic-monitor.html', monitor);
+writeFileSync('dist/local/index.html', standalone(monitor));
 const app = await bundle('app/main.ts', 'app/template.html');
 writeFileSync('dist/harmonic.html', app);
-writeFileSync('dist/local/index.html', standalone(app));
+writeFileSync('dist/local/orbit.html', standalone(app));
 const explorer = await bundle('explorer/app.ts', 'explorer/template.html');
 writeFileSync('dist/scale-explorer.html', explorer);
 writeFileSync('dist/local/explorer.html', standalone(explorer));
-console.log(`built app (${(app.length / 1024).toFixed(1)} KB) + explorer · ${report.numPassedTests} tests`);
+console.log(`built monitor (${(monitor.length / 1024).toFixed(1)} KB) + orbit + explorer · ${report.numPassedTests} tests`);

@@ -1,11 +1,12 @@
 // Tiny local server. Web MIDI needs http://localhost (a "secure context").
-//   http://localhost:5173/          → Harmonic
+//   http://localhost:5173/          → Harmonic (monitor look)
+//   http://localhost:5173/orbit     → Harmonic (Orbit on cream look)
 //   http://localhost:5173/explorer  → engine review tool
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 
 const PORT = Number(process.env.PORT ?? 5173);
-const pages = { '/': 'index.html', '/index.html': 'index.html', '/explorer': 'explorer.html', '/explorer.html': 'explorer.html' };
+const pages = { '/': 'index.html', '/index.html': 'index.html', '/orbit': 'orbit.html', '/orbit.html': 'orbit.html', '/explorer': 'explorer.html', '/explorer.html': 'explorer.html' };
 createServer((req, res) => {
   const file = pages[(req.url ?? '/').split('?')[0]];
   if (!file) { res.writeHead(404).end('Not found'); return; }
