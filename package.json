@@ -1,0 +1,25 @@
+{
+  "name": "harmonic",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc",
+    "spec": "tsx scripts/generate-spec.ts",
+    "explorer": "node scripts/build-explorer.mjs",
+    "start": "node scripts/serve.mjs",
+    "build": "npm run spec && npm run explorer"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
+  },
+  "type": "module"
+}

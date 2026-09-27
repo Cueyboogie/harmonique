@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<title>Harmonic Scale Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --panel: #14161B;
+    --surface: #1B1E25;
+    --raised: #242832;
+    --line: #323743;
+    --text: #ECE8E1;
+    --muted: #8D93A0;
+    --accent: #F4A259;
+    --ivory: #E4E0D8;
+    --ebony: #0C0D10;
+    --q-major: #F4A259;
+    --q-minor: #72A9E8;
+    --q-diminished: #D77BB9;
+    --q-augmented: #8CCB9B;
+    --display: 'Chakra Petch', 'Arial Narrow', system-ui, sans-serif;
+    --body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--panel); }
+  body { color: var(--text); font: 15px/1.5 var(--body); padding-inline: 16px; padding-block: 20px 40px; }
+  .wrap { max-width: 1160px; margin: 0 auto; display: grid; gap: 22px; }
+  button, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: .35; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  kbd { font: 500 11px/1 var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 2px 5px; }
+  .label, .sublabel { font: 600 11px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .sublabel { font-size: 10px; opacity: .8; }
+  .mono { font-family: var(--mono); }
+  .q-major { --q: var(--q-major); } .q-minor { --q: var(--q-minor); }
+  .q-diminished { --q: var(--q-diminished); } .q-augmented { --q: var(--q-augmented); }
+
+  /* header */
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .brand h1 { margin: 0; font: 700 28px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; }
+  .brand h1 span { color: var(--accent); }
+  .phase { font: 500 12px/1 var(--mono); color: var(--muted); }
+  .hdr-right { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 14px; font: 600 11px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; }
+  #sound[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  #midi-status[data-state="on"] { border-color: var(--q-augmented); color: var(--q-augmented); }
+  #midi-status[data-state="warn"] { color: var(--accent); }
+  #midi-status[data-state="off"] { color: var(--muted); }
+
+  /* controls */
+  .controls { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 22px; }
+  .ctl { display: grid; gap: 16px; align-content: start; }
+  .field { display: grid; gap: 8px; }
+  .row-fields { display: flex; gap: 18px; flex-wrap: wrap; }
+  #roots { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
+  .root { border: 1px solid var(--line); background: var(--ivory); color: var(--surface); border-radius: 0 0 6px 6px; padding: 14px 0 8px; font: 600 13px/1 var(--display); }
+  .root.is-black { background: var(--ebony); color: var(--text); }
+  .root[aria-pressed="true"] { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+  #scales { display: grid; gap: 10px; }
+  .scale-group { display: grid; gap: 7px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; font-size: 14px; }
+  .chip:hover, .seg:not(:disabled):hover { border-color: var(--muted); }
+  .chip[aria-pressed="true"] { background: var(--text); color: var(--panel); border-color: var(--text); font-weight: 600; }
+  .segs { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; width: fit-content; max-width: 100%; }
+  .seg { border: 0; border-right: 1px solid var(--line); background: var(--surface); padding: 8px 12px; font: 600 13px/1 var(--display); }
+  .seg:last-child { border-right: 0; }
+  .seg[aria-pressed="true"] { background: var(--raised); color: var(--accent); }
+
+  .info { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 12px; align-content: start; }
+  .info h2 { margin: 0; font: 700 32px/1.05 var(--display); text-wrap: balance; }
+  #scale-aka { color: var(--muted); font-size: 13px; min-height: 1em; }
+  #scale-mood { margin: 0; font-size: 16px; }
+  .recipe { margin: 0; color: var(--muted); font-size: 14px; }
+  .recipe b { color: var(--text); font-weight: 600; }
+  #scale-notes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+  .sn { display: grid; gap: 2px; justify-items: center; padding: 10px 0; border-radius: 8px; background: var(--raised); }
+  .sn-note { font: 600 18px/1 var(--display); }
+  .sn-deg { font: 500 12px/1 var(--mono); color: var(--muted); }
+  .sn.is-altered { box-shadow: inset 0 0 0 1px var(--accent); }
+  .sn.is-altered .sn-deg { color: var(--accent); }
+  .hint { font-size: 12px; color: var(--muted); margin: 0; }
+  .hint i { color: var(--accent); font-style: normal; }
+
+  /* key map: one octave, shaped like the keyboard */
+  .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--q); }
+  #keymap { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); grid-template-rows: auto auto; gap: 8px; }
+  .cell {
+    position: relative; text-align: left; display: grid; gap: 4px; align-content: start;
+    padding: 12px; border-radius: 12px; border: 1px solid var(--line); min-height: 116px;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    transition: transform .06s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .cell-white { background: linear-gradient(180deg, var(--raised), var(--surface)); }
+  .cell-black { background: linear-gradient(180deg, #111318, #0A0B0E); border-color: #2A2E38; min-height: 100px; margin-inline: 6%; }
+  .cell::after { content: ''; position: absolute; top: 13px; right: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--q); opacity: .4; transition: opacity .15s, box-shadow .15s; }
+  .cell-top { display: flex; align-items: baseline; gap: 8px; padding-right: 14px; }
+  .cell-key { font: 500 10px/1 var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
+  .cell-roman { font: 600 13px/1 var(--display); color: var(--q); }
+  .cell-symbol { font: 700 21px/1.1 var(--display); margin-top: 8px; overflow-wrap: anywhere; }
+  .cell-role { font: 600 10px/1.25 var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--q); margin-top: auto; }
+  .cell-black .cell-role { color: var(--muted); }
+  .cell:hover { border-color: var(--muted); }
+  .cell.is-on {
+    transform: scale(.98);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--q) 30%, var(--raised)), var(--surface));
+    border-color: var(--q);
+    box-shadow: 0 0 0 1px var(--q), 0 8px 30px -8px color-mix(in srgb, var(--q) 70%, transparent);
+  }
+  .cell.is-on::after { opacity: 1; box-shadow: 0 0 10px var(--q); }
+
+  /* live readout + keyboard */
+  .kb { background: var(--ebony); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 12px; }
+  #now { display: flex; gap: 6px 14px; align-items: baseline; flex-wrap: wrap; min-height: 26px; font-size: 14px; color: var(--muted); }
+  #now b { font: 700 22px/1 var(--display); color: var(--q); }
+  .now-roman { font: 600 15px/1 var(--display); color: var(--text); }
+  .now-notes { font-size: 12px; }
+  .kb-meta { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font: 400 12px/1.4 var(--mono); color: var(--muted); }
+  .kb-scroll { overflow-x: auto; }
+  #keys { position: relative; display: flex; height: 140px; min-width: 760px; touch-action: none; }
+  .key { position: relative; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 8px; user-select: none; -webkit-user-select: none; }
+  .key.white { background: var(--ivory); border: 1px solid var(--ebony); border-radius: 0 0 5px 5px; height: 100%; }
+  .key.black { position: absolute; top: 0; height: 62%; z-index: 2; background: #1A1C22; border: 1px solid #000; border-radius: 0 0 4px 4px; }
+  .oct { font: 500 9px/1 var(--mono); color: #7C818D; }
+  .key.white.lit { background: linear-gradient(180deg, var(--ivory) 25%, color-mix(in srgb, var(--q) 80%, var(--ivory))); }
+  .key.black.lit { background: linear-gradient(180deg, #1A1C22 15%, var(--q)); }
+  .key.pressed::before { content: ''; position: absolute; left: 50%; top: 8px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 2px var(--ebony); }
+  .key.white.pressed::before { background: var(--ebony); box-shadow: none; }
+
+  /* midi */
+  .midi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 14px; }
+  .midi-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: end; }
+  .midi-row label { display: grid; gap: 6px; min-width: 0; flex: 1 1 220px; }
+  select { background: var(--raised); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; }
+  #panic { border: 1px solid var(--q-diminished); color: var(--q-diminished); background: transparent; border-radius: 8px; padding: 9px 14px; font: 600 12px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; }
+  details { color: var(--muted); font-size: 14px; }
+  summary { cursor: pointer; color: var(--text); font-weight: 600; }
+  details ol { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch; }
+  details b { color: var(--text); font-weight: 600; }
+  #midi-off { margin: 0; color: var(--muted); font-size: 14px; max-width: 72ch; }
+
+  footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 14px; font: 400 12px/1.5 var(--mono); color: var(--muted); }
+  footer b { color: var(--q-augmented); font-weight: 500; }
+
+  @media (max-width: 900px) {
+    .controls { grid-template-columns: 1fr; }
+    .cell { padding: 9px; min-height: 96px; }
+    .cell-symbol { font-size: 16px; }
+    .cell-role { display: none; }
+  }
+  @media (max-width: 560px) {
+    #roots { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .root { border-radius: 6px; }
+    #keymap { gap: 4px; }
+    .cell { padding: 6px; min-height: 78px; border-radius: 8px; }
+    .cell-black { min-height: 70px; margin-inline: 0; }
+    .cell-key, .cell::after { display: none; }
+    .cell-symbol { font-size: 12px; margin-top: 4px; }
+    .cell-roman { font-size: 11px; }
+    .info h2 { font-size: 26px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Harm<span>o</span>nic</h1>
+      <span class="phase">Phases 0–3 · engine review build</span>
+    </div>
+    <div class="hdr-right">
+      <span id="midi-status" class="pill" data-state="off">MIDI: checking…</span>
+      <button id="sound" class="pill" aria-pressed="true">Browser sound on</button>
+    </div>
+  </header>
+
+  <section class="controls">
+    <div class="ctl">
+      <div class="field"><span class="label">Root</span><div id="roots"></div></div>
+      <div class="field"><span class="label">Scale</span><div id="scales"></div></div>
+      <div class="row-fields">
+        <div class="field"><span class="label">Chord size</span><div id="sizes" class="segs"></div></div>
+        <div class="field"><span class="label">Inversion</span><div id="inversions" class="segs"></div></div>
+        <div class="field"><span class="label">Spread</span><div id="spreads" class="segs"></div></div>
+      </div>
+    </div>
+    <div class="info" aria-live="polite">
+      <div><h2 id="scale-name"></h2><div id="scale-aka"></div></div>
+      <p id="scale-mood"></p>
+      <p class="recipe"><b>Recipe</b> · <span id="scale-recipe"></span></p>
+      <div id="scale-notes"></div>
+      <p class="hint">Numbers are degrees compared to the major scale. <i>Highlighted</i> degrees are what make this scale different from major.</p>
+    </div>
+  </section>
+
+  <section class="field">
+    <div class="section-head">
+      <span class="label">Key map · every octave · white = scale chords, black = color chords</span>
+      <div class="legend">
+        <span class="q-major"><i></i>Major</span>
+        <span class="q-minor"><i></i>Minor</span>
+        <span class="q-diminished"><i></i>Diminished</span>
+        <span class="q-augmented"><i></i>Augmented</span>
+      </div>
+    </div>
+    <div id="keymap"></div>
+  </section>
+
+  <section class="kb">
+    <div id="now"></div>
+    <div class="kb-scroll"><div id="keys"></div></div>
+    <div class="kb-meta"><span>49 keys · C1–C5 · Ableton note names (middle C = C3)</span><span>Computer keys start at <span id="kb-octave">C3</span></span></div>
+  </section>
+
+  <section class="midi">
+    <span class="label">MIDI · Arturia → Harmonic → Ableton</span>
+    <p id="midi-off" hidden>MIDI input and output run in the local version of this page on your Mac. Browsers block MIDI inside shared pages. Everything else here works the same.</p>
+    <div id="midi-panel" hidden>
+      <div class="midi-row">
+        <label><span class="sublabel">Input (your keyboard)</span><select id="midi-in"></select></label>
+        <label><span class="sublabel">Output (to Ableton)</span><select id="midi-out"></select></label>
+        <button id="panic" type="button">All notes off</button>
+      </div>
+      <details>
+        <summary>First-time setup on Mac (about 2 minutes)</summary>
+        <ol>
+          <li>Open <b>Audio MIDI Setup</b> (Spotlight). Menu <b>Window → Show MIDI Studio</b>. Double-click <b>IAC Driver</b>, tick <b>Device is online</b>, Apply.</li>
+          <li>Reload this page. Output should switch to <b>IAC Driver Bus 1</b> by itself.</li>
+          <li>In Ableton: <b>Settings → Link, Tempo &amp; MIDI</b>. Under MIDI Ports, turn on <b>Track</b> for <b>IAC Driver (Bus 1)</b> input.</li>
+          <li>On your instrument track, set <b>MIDI From</b> to <b>IAC Driver (Bus 1)</b> and <b>Monitor</b> to <b>In</b>. This keeps the Arturia's raw notes out, so you only hear the chords.</li>
+          <li>Play. Hold a key: chord. Release: silence. Sustain pedal, mod wheel and pitch bend pass straight through.</li>
+        </ol>
+      </details>
+    </div>
+  </section>
+
+  <footer>
+    <span>Engine: TypeScript · 10 scales × 12 roots × 5 sizes · 12 chords per octave</span>
+    <span><b>●</b> 306 automated checks passing</span>
+  </footer>
+</div>
+
+<script>
+"use strict";(()=>{var ve=Object.defineProperty;var Ce=(t,e,o)=>e in t?ve(t,e,{enumerable:!0,configurable:!0,writable:!0,value:o}):t[e]=o;var M=(t,e,o)=>Ce(t,typeof e!="symbol"?e+"":e,o);var ee=["C","D","E","F","G","A","B"],w=[0,2,4,5,7,9,11],h=(t,e)=>(t%e+e)%e;function C(t){return h(w[t.letter]+t.accidental,12)}var Ie={[-2]:"\u{1D12B}",[-1]:"\u266D",0:"",1:"\u266F",2:"\u{1D12A}"};function g(t){return ee[t.letter]+Ie[t.accidental]}function te(t){let e=/^([A-Ga-g])(bb|b|##|#|♭|♯)?$/.exec(t.trim());if(!e)throw new Error(`Invalid note name: "${t}"`);let o=ee.indexOf(e[1].toUpperCase()),n=e[2]??"";return{letter:o,accidental:n==="bb"?-2:n==="b"||n==="\u266D"?-1:n==="##"?2:n==="#"||n==="\u266F"?1:0}}var L=[{id:"lydian",name:"Lydian",family:"Major modes",intervals:[0,2,4,6,7,9,11],mood:"Dreamy, floating, wide-eyed. Film scores and space.",recipe:"Major with a raised 4th (\u266F4)."},{id:"ionian",name:"Major",aka:"Ionian",family:"Major modes",intervals:[0,2,4,5,7,9,11],mood:"Bright, resolved, happy.",recipe:"The reference scale."},{id:"mixolydian",name:"Mixolydian",family:"Major modes",intervals:[0,2,4,5,7,9,10],mood:"Bright but loose. Rock, funk, anthems.",recipe:"Major with a lowered 7th (\u266D7)."},{id:"dorian",name:"Dorian",family:"Major modes",intervals:[0,2,3,5,7,9,10],mood:"Minor but hopeful. Soul, house, neo-soul.",recipe:"Natural minor with a raised 6th (\u266E6)."},{id:"aeolian",name:"Minor",aka:"Aeolian / natural minor",family:"Major modes",intervals:[0,2,3,5,7,8,10],mood:"Sad, serious, emotional.",recipe:"The reference minor scale."},{id:"phrygian",name:"Phrygian",family:"Major modes",intervals:[0,1,3,5,7,8,10],mood:"Dark, tense, Spanish/metal edge.",recipe:"Natural minor with a lowered 2nd (\u266D2)."},{id:"locrian",name:"Locrian",family:"Major modes",intervals:[0,1,3,5,6,8,10],mood:"Unstable, uneasy \u2014 the tonic chord itself is diminished.",recipe:"Natural minor with \u266D2 and \u266D5."},{id:"harmonicMinor",name:"Harmonic Minor",family:"Minor variants",intervals:[0,2,3,5,7,8,11],mood:"Dramatic, classical, exotic pull back home.",recipe:"Natural minor with a raised 7th (\u266E7)."},{id:"melodicMinor",name:"Melodic Minor",aka:"jazz minor",family:"Minor variants",intervals:[0,2,3,5,7,9,11],mood:"Sophisticated, jazzy, bittersweet.",recipe:"Major with a lowered 3rd (\u266D3)."},{id:"phrygianDominant",name:"Phrygian Dominant",aka:"Spanish / Hijaz",family:"Minor variants",intervals:[0,1,4,5,7,8,10],mood:"Cinematic, Middle-Eastern / flamenco heat.",recipe:"Phrygian with a major 3rd. Mode 5 of harmonic minor."}],B=[0,2,4,5,7,9,11];function z(t){let e=L.find(o=>o.id===t);if(!e)throw new Error(`Unknown scale: ${t}`);return e}var Ee=[["C"],["Db","C#"],["D"],["Eb","D#"],["E"],["F"],["F#","Gb"],["G"],["Ab","G#"],["A"],["Bb","A#"],["B"]];function G(t,e){let o=z(e),n=typeof t=="string"?te(t):t,i=C(n),a=o.intervals.map((r,s)=>{let c=(n.letter+s)%7,u=h(i+r,12),f=h(u-w[c],12);return f>6&&(f-=12),{letter:c,accidental:f}});return{def:o,root:n,notes:a,pitchClasses:a.map(C)}}var ne=t=>t.notes.reduce((e,o)=>e+Math.abs(o.accidental),0);function F(t,e){return Ee[h(t,12)].map(n=>G(n,e)).reduce((n,i)=>ne(i)<ne(n)?i:n)}function oe(t){return t.intervals.map((e,o)=>{let n=h(e-B[o]+6,12)-6;return(n<0?"\u266D".repeat(-n):"\u266F".repeat(n))+(o+1)})}var re=["triad","7th","9th","11th","13th"],xe={triad:3,"7th":4,"9th":5,"11th":6,"13th":7},Te={"4,7":"major","3,7":"minor","3,6":"diminished","4,8":"augmented"},we={"major,11":"maj7","major,10":"dom7","minor,10":"min7","minor,11":"minMaj7","diminished,10":"halfDim7","diminished,9":"dim7","augmented,11":"augMaj7","augmented,10":"aug7"},Le={major:"",minor:"m",diminished:"\xB0",augmented:"+"},$e={maj7:"maj7",dom7:"7",min7:"m7",minMaj7:"m(maj7)",halfDim7:"m7\u266D5",dim7:"\xB07",augMaj7:"+maj7",aug7:"+7"},Ae={maj7:"maj7",dom7:"7",min7:"7",minMaj7:"(maj7)",halfDim7:"\xF87",dim7:"\xB07",augMaj7:"+maj7",aug7:"+7"},se={major:"Major",minor:"Minor",diminished:"Diminished",augmented:"Augmented"},Ne={13:"\u266D9",14:"9",15:"\u266F9",16:"\u266D11",17:"11",18:"\u266F11",20:"\u266D13",21:"13",22:"\u266F13"},ie=["I","II","III","IV","V","VI","VII"];function v(t,e,o="triad"){if(!Number.isInteger(e)||e<1||e>7)throw new Error(`Degree must be 1..7, got ${e}`);let n=xe[o],a=Array.from({length:n},(b,K)=>(e-1+2*K)%7).map(b=>t.notes[b]),r=a.map(C),s=[0];for(let b=1;b<n;b++){let K=h(r[b]-r[b-1],12);s.push(s[b-1]+K)}let c=Te[`${s[1]},${s[2]}`];if(!c)throw new Error(`Unclassifiable triad intervals ${s.slice(0,3)}`);let u=n>=4?we[`${c},${s[3]}`]:void 0;if(n>=4&&!u)throw new Error(`Unclassifiable seventh ${c},${s[3]}`);let f=s.slice(4).map(b=>Ne[b]??`?${b}`),S=g(a[0])+(u?$e[u]:Le[c]);f.length&&(S+=`(${f.join(",")})`);let _=h(t.def.intervals[e-1]-B[e-1]+6,12)-6,Se=_<0?"\u266D".repeat(-_):"\u266F".repeat(_),A=c==="major"||c==="augmented"?ie[e-1]:ie[e-1].toLowerCase();u?A+=Ae[u]:c==="diminished"?A+="\xB0":c==="augmented"&&(A+="+");let Me=Se+A;return{degree:e,size:o,notes:a,pitchClasses:r,intervals:s,triad:c,seventh:u,tensions:f,symbol:S,roman:Me}}var N=[0,2,4,5,7,9,11],$=[1,3,6,8,10],ae=t=>t.reduce((e,o)=>e+Math.abs(o.accidental),0);function De(t){let e=C(t),o=[t];for(let n of[-1,1]){let i=h(t.letter+n,7),a=h(e-w[i],12);a>6&&(a-=12),Math.abs(a)<=2&&o.push({letter:i,accidental:a})}return o}function q(t,e){return De(t).map(o=>G(o,e)).reduce((o,n)=>{let i=a=>a.notes.some(r=>Math.abs(r.accidental)>1);return i(o)!==i(n)?i(n)?o:n:ae(n.notes)<ae(o.notes)?n:o})}var Q=t=>t.pitchClasses.slice(0,3).join(","),p=(t,e,o)=>({kind:"borrow",from:t,degree:e,role:o}),k=(t,e)=>({kind:"secdom",target:t,role:e}),je=[p("aeolian",4,"Minor iv"),p("aeolian",7,"\u266DVII"),p("aeolian",6,"\u266DVI"),k(5,"V of V"),k(6,"V of vi"),p("aeolian",3,"\u266DIII"),k(2,"V of ii"),p("phrygian",2,"\u266DII (Neapolitan)"),p("ionian",5,"Major V"),k(4,"V of IV")],Oe=[p("harmonicMinor",5,"Major V"),p("dorian",4,"Major IV"),p("phrygian",2,"\u266DII (Neapolitan)"),p("ionian",1,"Major I (Picardy)"),k(4,"V of iv"),p("aeolian",7,"\u266DVII"),p("aeolian",6,"\u266DVI"),k(5,"V of V"),p("aeolian",4,"Minor iv"),p("aeolian",5,"Minor v"),p("aeolian",3,"\u266DIII")];function ce(t,e,o){let n=g(e.root);if(t.kind==="borrow"){let s=q(e.root,t.from);return{chord:v(s,t.degree,o),role:t.role,reason:`Borrowed from ${n} ${z(t.from).name}`}}let i=v(e,t.target,"triad");if(i.triad==="diminished"||i.triad==="augmented")return null;let a=q(i.notes[0],i.triad==="major"?"ionian":"harmonicMinor");return{chord:v(a,5,o),role:t.role,reason:`Secondary dominant \u2192 ${i.symbol}`}}var Re={major:2,minor:2,diminished:0,augmented:-2};function Pe(t,e){let o=[];for(let n of L){if(n.id===t.def.id)continue;let i=n.intervals.filter(r=>t.def.intervals.includes(r)).length,a=q(t.root,n.id);for(let r=1;r<=7;r++){let s=v(a,r,"triad"),c=s.pitchClasses.filter(u=>t.pitchClasses.includes(u)).length;o.push({chord:v(a,r,e),role:`Borrowed ${s.roman}`,reason:`Borrowed from ${g(t.root)} ${n.name}`,score:i+Re[s.triad]+2*c})}}return o.sort((n,i)=>i.score-n.score)}function He(t,e="7th"){let o=new Set([1,2,3,4,5,6,7].map(r=>Q(v(t,r,"triad")))),n=t.def.intervals[2]===4?je:Oe,i=[],a=r=>{if(!r||i.length>=5)return;let s=Q(r.chord);o.has(s)||r.chord.notes.some(c=>Math.abs(c.accidental)>1)||(o.add(s),i.push(r))};for(let r of n){let s=ce(r,t,"triad");s&&!o.has(Q(s.chord))&&a(ce(r,t,e))}if(i.length<5)for(let r of Pe(t,e))a(r);return i}function de(t,e="7th"){let o=t.pitchClasses[0],n=r=>h(r.pitchClasses[0]-o,12),i=new Array(12);N.forEach((r,s)=>{let c=v(t,s+1,e);i[r]={keyPc:r,kind:"diatonic",chord:c,role:`Degree ${s+1}`,reason:`${g(t.root)} ${t.def.name}`,rootOffset:n(c)}});let a=He(t,e).sort((r,s)=>n(r.chord)-n(s.chord)||r.chord.symbol.localeCompare(s.chord.symbol));return $.forEach((r,s)=>{let c=a[s];i[r]={keyPc:r,kind:"color",chord:c.chord,role:c.role,reason:c.reason,rootOffset:n(c.chord)}}),i}function le(t,e,o){let n=h(t,12),i=e.pitchClasses[0],a=i>6?i-12:i,r=o[n];return{slot:r,rootMidi:t-n+a+r.rootOffset}}var ue=["close","open","wide"];function Ve(t,e=!0){let o=t.intervals;if(!e||o.length<6)return[...o];let n=o[1]===4;return o.filter((a,r)=>r===2?!1:r===5?a===18?!0:o.length===7?!1:!n:!0)}function _e(t){return t.intervals.length>=4?3:2}function me(t,e,o={}){let{inversion:n=0,spread:i="close",trim:a=!0}=o,r=Ve(t,a).map(c=>e+c),s=Math.max(0,Math.min(n,_e(t),r.length-1));for(let c=0;c<s;c++)r.sort((u,f)=>u-f),r[0]+=12;for(r.sort((c,u)=>c-u),i!=="close"&&r.length>=3&&(r.length===3?r[1]+=12:r[r.length-2]-=12,r.sort((c,u)=>c-u)),i==="wide"&&r.unshift(r[0]-12);r[0]<0;)r=r.map(c=>c+12);for(;r[r.length-1]>127;)r=r.map(c=>c-12);return[...new Set(r)].sort((c,u)=>c-u)}var D=class{constructor(e){M(this,"cb",e);M(this,"access",null);M(this,"out",null);M(this,"inputId","all");M(this,"outputId","");M(this,"status","pending");M(this,"sounding",new Map)}async init(){if(!("requestMIDIAccess"in navigator)){this.status="unsupported",this.cb.devicesChanged();return}try{this.access=await navigator.requestMIDIAccess({sysex:!1}),this.status="ready",this.access.onstatechange=()=>{this.bindInputs(),this.cb.devicesChanged()};let e=this.outputs().find(o=>/iac|bus/i.test(o.name));e&&this.setOutput(e.id),this.bindInputs()}catch{this.status="blocked"}this.cb.devicesChanged()}inputs(){return this.access?[...this.access.inputs.values()].map(e=>({id:e.id,name:e.name??e.id})):[]}outputs(){return this.access?[...this.access.outputs.values()].map(e=>({id:e.id,name:e.name??e.id})):[]}get outputName(){return this.out?.name??""}setOutput(e){this.panic(),this.outputId=e,this.out=e&&this.access?.outputs.get(e)||null,this.bindInputs()}setInput(e){this.inputId=e,this.bindInputs()}isLoop(e){return this.out?e.name===this.out.name||/iac/i.test(e.name??"")&&/iac/i.test(this.out.name??""):!1}isLoopInput(e){let o=this.access?.inputs.get(e);return o?this.isLoop(o):!1}bindInputs(){if(this.access)for(let e of this.access.inputs.values()){let o=(this.inputId==="all"||this.inputId===e.id)&&!this.isLoop(e);e.onmidimessage=o?n=>this.handle(n.data):null}}handle(e){let o=e[0]&240,n=e[0]&15;o===144&&e[2]>0?this.cb.noteOn(e[1],e[2],n):o===128||o===144&&e[2]===0?this.cb.noteOff(e[1],n):(o===176||o===224||o===208||o===160)&&this.out?.send(e)}send(e,o,n=0){let i=n*128+e,a=this.sounding.get(i)??0;this.sounding.set(i,a+1),a===0&&this.out?.send([144|n,e,o])}release(e,o=0){let n=o*128+e,i=this.sounding.get(n)??0;i<=1?(this.sounding.delete(n),this.out?.send([128|o,e,0])):this.sounding.set(n,i-1)}panic(){for(let e of this.sounding.keys())this.out?.send([128|Math.floor(e/128),e%128,0]);this.sounding.clear();for(let e=0;e<16;e++)this.out?.send([176|e,123,0]),this.out?.send([176|e,64,0])}};var d={rootPc:0,scaleId:"ionian",size:"7th",inversion:0,spread:"close",sound:!0,kbOctave:4},pe=36,he=84,fe=["C","C\u266F","D","D\u266F","E","F","F\u266F","G","G\u266F","A","A\u266F","B"],O=new Set($),Ke=["KeyA","KeyW","KeyS","KeyE","KeyD","KeyF","KeyT","KeyG","KeyY","KeyH","KeyU","KeyJ","KeyK"],Be=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],be=t=>Be[t%12]+(Math.floor(t/12)-2),l=t=>document.getElementById(t),x,X,y=null,j,R=new Map;function ze(){return y||(y=new AudioContext,j=y.createGain(),j.gain.value=.2,j.connect(y.createDynamicsCompressor()).connect(y.destination)),y.state==="suspended"&&y.resume(),y}function Ge(t,e){let o=R.get(t);if(o){o.count++;return}let n=ze(),i=n.currentTime,a=.16*(.4+e/127*.6),r=n.createGain();r.gain.setValueAtTime(0,i),r.gain.linearRampToValueAtTime(a,i+.012),r.gain.exponentialRampToValueAtTime(a*.55,i+.6);let s=n.createBiquadFilter();s.type="lowpass",s.frequency.setValueAtTime(3400,i),s.frequency.exponentialRampToValueAtTime(1200,i+.9);let c=440*Math.pow(2,(t-69)/12),u=["triangle","sawtooth"].map((f,J)=>{let S=n.createOscillator();return S.type=f,S.frequency.value=c,S.detune.value=J?7:-7,S.connect(s),S.start(i),S});s.connect(r).connect(j),R.set(t,{osc:u,gain:r,count:1})}function Fe(t){let e=R.get(t);if(!e||!y||--e.count>0)return;R.delete(t);let o=y.currentTime;e.gain.gain.cancelScheduledValues(o),e.gain.gain.setValueAtTime(Math.max(e.gain.gain.value,1e-4),o),e.gain.gain.exponentialRampToValueAtTime(1e-4,o+.5),e.osc.forEach(n=>n.stop(o+.55))}var I=new Map,Y=null,m=new D({noteOn:(t,e,o)=>P(`midi:${o}:${t}`,t,e,o),noteOff:(t,e)=>T(`midi:${e}:${t}`),devicesChanged:()=>V()});function P(t,e,o=100,n=0){I.has(t)&&T(t);let i=le(e,x,X),a=me(i.slot.chord,i.rootMidi,{inversion:d.inversion,spread:d.spread}),r=d.sound;I.set(t,{notes:a,keyMidi:e,slot:i.slot,ch:n,synth:r});for(let s of a)r&&Ge(s,o),m.send(s,o,n);Y={slot:i.slot,notes:a,keyMidi:e},Z()}function T(t){let e=I.get(t);if(e){I.delete(t);for(let o of e.notes)e.synth&&Fe(o),m.release(o,e.ch);Z()}}function H(){for(let t of[...I.keys()])T(t)}function Qe(){x=F(d.rootPc,d.scaleId),X=de(x,d.size)}function U(t,e,o,n,i,a,r=()=>!1){t.innerHTML="";for(let s of e){let c=document.createElement("button");c.className="seg",c.id=`${a}-${s}`,c.textContent=n(s),c.disabled=r(s),c.setAttribute("aria-pressed",String(s===o)),c.onclick=()=>i(s),t.appendChild(c)}}function qe(){let t=l("roots");t.innerHTML="";for(let n=0;n<12;n++){let i=document.createElement("button");i.className="root"+(O.has(n)?" is-black":""),i.id=`root-${n}`,i.textContent=g(F(n,d.scaleId).root),i.setAttribute("aria-pressed",String(n===d.rootPc)),i.onclick=()=>{d.rootPc=n,E()},t.appendChild(i)}let e=l("scales");e.innerHTML="";for(let n of["Major modes","Minor variants"]){let i=document.createElement("div");i.className="scale-group",i.innerHTML=`<span class="sublabel">${n==="Major modes"?"Modes \xB7 bright \u2192 dark":"Minor variants"}</span>`;let a=document.createElement("div");a.className="chips";for(let r of L.filter(s=>s.family===n)){let s=document.createElement("button");s.className="chip",s.id=`scale-${r.id}`,s.textContent=r.name,s.setAttribute("aria-pressed",String(r.id===d.scaleId)),s.onclick=()=>{d.scaleId=r.id,E()},a.appendChild(s)}i.appendChild(a),e.appendChild(i)}U(l("sizes"),re,d.size,n=>n==="triad"?"Triad":n,n=>{d.size=n,E()},"size");let o=d.size==="triad"?2:3;U(l("inversions"),[0,1,2,3],d.inversion,n=>["Root","1st","2nd","3rd"][n],n=>{d.inversion=n,E()},"inv",n=>n>o),U(l("spreads"),ue,d.spread,n=>n[0].toUpperCase()+n.slice(1),n=>{d.spread=n,E()},"spread")}function Ue(){let t=x.def,e=oe(t);l("scale-name").textContent=`${g(x.root)} ${t.name}`,l("scale-aka").textContent=t.aka?`also: ${t.aka}`:"",l("scale-mood").textContent=t.mood,l("scale-recipe").textContent=t.recipe;let o=l("scale-notes");o.innerHTML="",x.notes.forEach((n,i)=>{let a=document.createElement("div");a.className="sn"+(/[♭♯]/.test(e[i])?" is-altered":""),a.innerHTML=`<span class="sn-note">${g(n)}</span><span class="sn-deg">${e[i]}</span>`,o.appendChild(a)})}function ge(t,e,o){t.addEventListener("pointerdown",i=>{i.preventDefault(),t.setPointerCapture(i.pointerId),P(`${e()}:${i.pointerId}`,o())});let n=i=>T(`${e()}:${i.pointerId}`);t.addEventListener("pointerup",n),t.addEventListener("pointercancel",n),t.addEventListener("keydown",i=>{(i.key==="Enter"||i.key===" ")&&!i.repeat&&(i.preventDefault(),P(`${e()}:kb`,o()))}),t.addEventListener("keyup",i=>{(i.key==="Enter"||i.key===" ")&&T(`${e()}:kb`)})}function Ye(){let t=l("keymap");t.innerHTML="";let e=o=>{let n=X[o],i=n.chord,a=document.createElement("button"),r=O.has(o);a.className=`cell ${r?"cell-black":"cell-white"} q-${i.triad}`,a.id=`cell-${o}`,a.dataset.pc=String(o);let s=N.indexOf(o),c=[0,1,3,4,5][$.indexOf(o)];a.style.gridColumn=r?`${c*2+2} / span 2`:`${s*2+1} / span 2`,a.style.gridRow=r?"1":"2",a.setAttribute("aria-label",`${fe[o]} key plays ${i.symbol}, ${n.role}`),a.innerHTML=`
+      <span class="cell-top"><span class="cell-key">${fe[o]}</span><span class="cell-roman">${i.roman}</span></span>
+      <span class="cell-symbol">${i.symbol}</span>
+      <span class="cell-role">${n.kind==="color"?n.role:se[i.triad]}</span>`,ge(a,()=>`map:${o}`,()=>d.kbOctave*12+12+o),t.appendChild(a)};$.forEach(e),N.forEach(e)}function We(){let t=l("keys");t.innerHTML="";let e=[];for(let n=pe;n<=he;n++)O.has(n%12)||e.push(n);let o=100/e.length;for(let n=pe;n<=he;n++){let i=n%12,a=O.has(i),r=document.createElement("div");if(r.className=`key ${a?"black":"white"}`,r.id=`key-${n}`,r.dataset.midi=String(n),a){let s=e.filter(c=>c<n).length;r.style.left=`calc(${s*o}% - ${o*.33}%)`,r.style.width=`${o*.66}%`}else r.style.width=`${o}%`,i===0&&(r.innerHTML=`<span class="oct">C${Math.floor(n/12)-2}</span>`);ge(r,()=>`key:${n}`,()=>n),t.appendChild(r)}ye()}function ye(){let t=new Map,e=new Set;for(let n of I.values()){e.add(n.keyMidi);for(let i of n.notes)t.set(i,n.slot.chord.triad)}document.querySelectorAll(".key").forEach(n=>{let i=Number(n.dataset.midi),a=t.get(i);n.className=n.className.replace(/\s?(lit|q-\w+|pressed)/g,""),a&&n.classList.add("lit",`q-${a}`),e.has(i)&&n.classList.add("pressed")});let o=new Set([...I.values()].map(n=>n.keyMidi%12));document.querySelectorAll(".cell").forEach(n=>n.classList.toggle("is-on",o.has(Number(n.dataset.pc))))}function Z(){ye();let t=l("now");if(!Y){t.innerHTML='<span class="now-hint">Play a key: click, use your MIDI keyboard, or type <kbd>A</kbd> <kbd>W</kbd> <kbd>S</kbd> <kbd>E</kbd> <kbd>D</kbd> \u2026 (<kbd>Z</kbd>/<kbd>X</kbd> octave)</span>';return}let{slot:e,notes:o,keyMidi:n}=Y;t.innerHTML=`
+    <b class="q-${e.chord.triad}">${e.chord.symbol}</b>
+    <span class="now-roman">${e.chord.roman}</span>
+    <span class="now-role">${e.kind==="color"?`${e.role} \xB7 ${e.reason}`:`${e.role} of ${e.reason}`}</span>
+    <span class="now-notes mono">key ${be(n)} \u2192 ${o.map(be).join(" ")}</span>`}function V(){let t=l("midi-status"),e=l("midi-panel");if(m.status!=="ready"){let s=m.status==="pending";t.textContent=s?"MIDI: waiting for permission":"MIDI: local app only",t.dataset.state="off",e.hidden=!0,l("midi-off").hidden=!1,l("midi-off").textContent=s?"Waiting for MIDI access. In the local app on your Mac, click Allow when Chrome asks. Shared pages can\u2019t use MIDI, so there this stays off; everything else works the same.":"MIDI input and output run in the local version of this page on your Mac. Browsers block MIDI inside shared pages. Everything else here works the same.";return}l("midi-off").hidden=!0,e.hidden=!1;let o=m.inputs(),n=m.outputs(),i=l("midi-in"),a=l("midi-out");i.innerHTML='<option value="all">All inputs</option>'+o.map(s=>`<option value="${s.id}" ${m.isLoopInput(s.id)?"disabled":""}>${s.name}${m.isLoopInput(s.id)?" (output, ignored)":""}</option>`).join(""),i.value=m.inputId,a.innerHTML='<option value="">None (browser sound only)</option>'+n.map(s=>`<option value="${s.id}">${s.name}</option>`).join(""),a.value=m.outputId;let r=!!m.outputId;t.textContent=r?`MIDI \u2192 ${m.outputName}`:`MIDI: ${o.length} in \xB7 no output`,t.dataset.state=r?"on":"warn"}function E(){H(),Qe(),d.inversion=Math.min(d.inversion,d.size==="triad"?2:3),qe(),Ue(),Ye(),We(),Z()}var W=new Set;window.addEventListener("keydown",t=>{if(t.metaKey||t.ctrlKey||t.altKey||t.repeat||t.target.tagName==="SELECT")return;if(t.code==="KeyZ"||t.code==="KeyX"){d.kbOctave=Math.max(1,Math.min(7,d.kbOctave+(t.code==="KeyX"?1:-1))),l("kb-octave").textContent=`C${d.kbOctave-1}`;return}let e=Ke.indexOf(t.code);e<0||(t.preventDefault(),W.add(t.code),P(`ck:${t.code}`,(d.kbOctave+1)*12+e))});window.addEventListener("keyup",t=>{W.has(t.code)&&(W.delete(t.code),T(`ck:${t.code}`))});window.addEventListener("blur",H);l("sound").addEventListener("click",()=>{d.sound=!d.sound,l("sound").setAttribute("aria-pressed",String(d.sound)),l("sound").textContent=d.sound?"Browser sound on":"Browser sound off"});l("midi-in").addEventListener("change",t=>{m.setInput(t.target.value),V()});l("midi-out").addEventListener("change",t=>{H(),m.setOutput(t.target.value),m.outputId&&d.sound&&l("sound").click(),V()});l("panic").addEventListener("click",()=>{H(),m.panic()});E();V();m.init().then(()=>{m.outputId&&d.sound&&l("sound").click()});})();
+
+</script>
+
+</body>
+</html>
