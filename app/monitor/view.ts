@@ -186,9 +186,8 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode } = {}) {
   function renderTempo() {
     const bpm = $<HTMLInputElement>('bpm');
     if (document.activeElement !== bpm) bpm.value = String(Math.round(c.bpm));
-    bpm.readOnly = mode === 'live';
     $('tempo-host').hidden = mode !== 'live';
-    $('half').hidden = $('dbl').hidden = !c.take || mode === 'live';
+    $('half').hidden = $('dbl').hidden = !c.take;
   }
 
   function renderScope() {

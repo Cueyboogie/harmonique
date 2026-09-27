@@ -72,8 +72,10 @@ export class Controller {
   rec: RecState = 'idle';
 
   readonly midi: MidiIO;
-  /** The host owns the tempo (Ableton via Max for Live): recordings keep it instead of detecting one. */
+  /** The host owns the tempo: recordings keep it instead of detecting one. (Also true whenever Live is playing.) */
   tempoLocked = false;
+  /** Called when Harmonique changes the tempo itself (detected from a take, ÷2 ×2, typed), so a host can follow. */
+  onTempo: ((bpm: number) => void) | null = null;
   /** Host timeline (Live): performance.now() time of the song's beat 0 while the host plays, else null. */
   private hostZero: number | null = null;
   /** Host beat where the loop's beat 0 sits (the bar you started recording on), so it replays where you played it. */
@@ -123,7 +125,7 @@ export class Controller {
   }
   get keyName() { return `${noteLabel(this.scale.root)} ${this.scale.def.name}`; }
 
-  setBpm(bpm: number) {
+  setBpm(bpm: number, fromHost = false) {
     const next = Math.max(40, Math.min(240, Math.round(bpm * 10) / 10));
     if (this.running && this.hostZero === null) {
       const now = performance.now();
@@ -132,6 +134,7 @@ export class Controller {
       this.transportStart = now - (beat * 60000) / next; // keep the beat position continuous
     } else this.bpm = next;
     if (this.rawTake) { this.rawTake = { ...this.rawTake, bpm: this.bpm }; this.derive(); }
+    if (!fromHost) this.onTempo?.(this.bpm);
     this.notify();
   }
 
@@ -240,13 +243,15 @@ export class Controller {
     this.rec = 'idle';
     const events = this.recEvents.sort((a, b) => a.startMs - b.startMs);
     if (!events.length) return;
-    const take = takeFromRecording(events, now - this.recT0, this.euclidOn || this.tempoLocked ? this.bpm : undefined);
+    const fixed = this.euclidOn || this.tempoLocked || this.hostZero !== null;
+    let take = takeFromRecording(events, now - this.recT0, fixed ? this.bpm : undefined);
+    if (!fixed) take = { ...take, bpm: Math.round(take.bpm) }; // a clean whole-number tempo for the DAW (≤0.5% change)
     this.loopOffset = this.hostZero !== null ? Math.round(((this.recT0 - this.hostZero) * this.bpm) / 60000) : 0;
     this.rawTake = take;
     this.loopBars = 'auto';
     this.derive();
     this.takeName = 'Your take';
-    this.bpm = take.bpm;
+    if (take.bpm !== this.bpm) { this.bpm = take.bpm; this.onTempo?.(this.bpm); }
     this.play(); // looper-style: the loop starts right away
   }
 
@@ -259,6 +264,7 @@ export class Controller {
     const wasPlaying = this.playing;
     if (wasPlaying) this.stop();
     this.bpm = this.rawTake.bpm;
+    this.onTempo?.(this.bpm);
     if (wasPlaying) this.play();
     this.notify();
   }

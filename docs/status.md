@@ -63,6 +63,7 @@
 - Controller takes any MIDI connection (`MidiIO`): Web MIDI or the Max host.
 - Note: the same key can sound different because velocity comes from the keyboard (touch) and VOICING SMOOTH re-voices each chord to move as little as possible from the previous one.
 - **Sync with Live fixed (Diego found takes drifting off Live's grid):** (1) with a fixed tempo, recordings were still stretched to whole bars, so a take at 118 wasn't really 118: now never stretched. (2) The device now reads Live's song position (`current_song_time`), so the loop and Euclidean steps land on Live's beats; a recording is measured from the bar line nearest your first chord and replays on that same bar. Simulated Live test: chords land within ~4–8 ms of the grid after ±30 ms sloppy playing. 362 tests.
+- **Tempo in Live is two-way (Diego):** with Live stopped, REC → play at any speed → STOP detects your tempo (rounded to a whole BPM) and **sets Live's tempo** ([live.object] `set tempo`). With Live playing, you're playing along, so Live's tempo holds. Typing a BPM or ÷2 ×2 also sets Live's tempo; changing tempo in Live updates Harmonique. Logo 40% smaller (22 px) with matching 9 px text.
 
 ## Next
 1. **Diego listens:** presets, Generate (Pop vs Bach, Tension, Color), hints, Smooth on/off. What sounds great, what doesn't.

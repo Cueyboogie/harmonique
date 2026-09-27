@@ -4,7 +4,7 @@ import { MaxBridge, maxApi } from './bridge';
 
 const c = new Controller((cb) => new MaxBridge(cb));
 c.set('clockOut', false);      // Live is the clock
-c.tempoLocked = true;           // recordings keep Live's tempo, never stretched
+// Tempo: with Live stopped, your playing sets it and Live follows. With Live playing, Live's tempo holds.
 c.synth.enabled = false;        // the track's instrument makes the sound
 mountMonitor(c, { mode: 'live' });
 
@@ -31,7 +31,8 @@ function onSongTime(beats: number) {
 
 const m = maxApi();
 if (m) {
-  m.bindInlet('tempo', (bpm) => { est = []; c.setBpm(bpm); });
+  m.bindInlet('tempo', (bpm) => { est = []; if (Math.abs(bpm - c.bpm) > 0.01) c.setBpm(bpm, true); });
+  c.onTempo = (bpm) => m.outlet('settempo', Math.round(bpm * 100) / 100);
   m.bindInlet('songtime', onSongTime);
   // Live's transport: starting Live starts the loop on Live's grid; stopping Live stops it.
   m.bindInlet('liveplay', (on) => {

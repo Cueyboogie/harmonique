@@ -118,9 +118,9 @@
   .node.black:not(.hint):not(.lit):not(:hover) { opacity: .4; }
 
   /* maker's mark */
-  .brand { display: flex; align-items: center; gap: 14px; margin-top: auto; padding: 0 0 8px 6px; opacity: .9; }
-  .brand-logo { height: 36px; width: auto; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--p) 55%, transparent)); }
-  .brand span { font: 500 12px/1 var(--mono); letter-spacing: .26em; text-shadow: var(--glow); }
+  .brand { display: flex; align-items: center; gap: 9px; margin-top: auto; padding: 0 0 8px 6px; opacity: .9; }
+  .brand-logo { height: 22px; width: auto; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--p) 55%, transparent)); }
+  .brand span { font: 500 9px/1 var(--mono); letter-spacing: .24em; text-shadow: var(--glow); }
 
   /* overlays */
   .panel { position: absolute; z-index: 10; top: 60px; right: 60px; width: 380px; padding: 18px; border: 1.5px solid var(--p); background: color-mix(in srgb, var(--bg) 92%, black); box-shadow: 0 0 24px color-mix(in srgb, var(--p) 40%, transparent); display: grid; gap: 14px; }
@@ -216,7 +216,7 @@
                   <span class="lbl">TEMPO</span>
                   <input class="bpm" id="bpm" type="number" min="40" max="240" step="1" aria-label="Tempo in BPM">
                   <span class="lbl">BPM</span>
-                  <span class="lbl" id="tempo-host" hidden>· FROM LIVE</span>
+                  <span class="lbl" id="tempo-host" hidden title="Your playing sets the tempo when Live is stopped; Live follows">· LIVE FOLLOWS</span>
                   <span style="flex-grow:1"></span>
                   <button class="t" id="half" type="button" title="Half-time reading">÷2</button>
                   <button class="t" id="dbl" type="button" title="Double-time reading">×2</button>

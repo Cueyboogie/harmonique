@@ -71,7 +71,12 @@ export function buildDevice(htmlUrl) {
   d.link(fmt, 0, out1, 0);
 
   const rOut = d.obj('r ---harmOut', 20, 220, 0, 1, { outlettype: [''] });
-  const route = d.obj('route midi', 20, 260, 2, 2, { outlettype: ['', ''] });
+  const route = d.obj('route midi settempo', 20, 260, 3, 3, { outlettype: ['', '', ''] });
+  // Harmonique sets Live's tempo: "settempo 124.5" → set tempo 124.5 → [live.object] on live_set
+  const setT = d.obj('prepend set tempo', 200, 300, 1, 1, { outlettype: [''] });
+  const lobj = d.obj('live.object', 200, 340, 2, 1, { outlettype: [''] });
+  d.link(route, 1, setT, 0);
+  d.link(setT, 0, lobj, 0);
   const iter = d.obj('iter', 20, 380, 1, 1, { outlettype: [''] });
   const out2 = d.obj('midiout', 20, 420, 1, 0);
   d.link(rOut, 0, route, 0);
@@ -112,6 +117,7 @@ export function buildDevice(htmlUrl) {
   d.link(tbb, 1, pTime, 0);
   d.link(pTime, 0, obsS, 0);
   d.link(lpath, 0, obsS, 1);
+  d.link(lpath, 0, lobj, 1);
   d.link(obsS, 0, prS, 0);
   d.link(prS, 0, sIn2, 0);
   d.link(pTempo, 0, obsT, 0);
