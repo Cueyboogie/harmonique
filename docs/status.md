@@ -2,6 +2,7 @@
 
 **Approach:** Option B. TypeScript engine + web prototype first (Web MIDI → IAC Driver → Ableton), JUCE plugin later.
 **Roles:** Diego owns UX, spec decisions and listening tests. Claude writes engine code and tests.
+**Repo on Diego’s Mac:** ~/Documents/harmonic (git, first commit b4da515). Launch: double-click `Start Harmonic.command`.
 **Hardware target:** Arturia 49-key controller (KeyLab 49 range), Ableton Live.
 
 ## Done
@@ -20,7 +21,7 @@
 - UI direction for later: basic but attractive, Ableton-like clarity with some sex appeal. Redesign in its own session.
 
 ## Next
-1. **Phase 3 test on Diego's Mac:** needs a project folder connected to Cowork. Then `npm install && npm run build && npm start`, open http://localhost:5173 in Chrome, turn on the IAC Driver, route in Ableton.
+1. **Phase 3 test on Diego’s Mac:** repo is in place. Double-click `Start Harmonic.command`, allow MIDI in Chrome, turn on the IAC Driver, route in Ableton. Report back what works.
 2. **Phase 6: voice leading.** Pick the inversion that moves least from the previous chord ("Connected ↔ Independent" control).
 3. **Phase 7: progressions.** Explore learning chord-to-chord probabilities from Bach chorales (public domain) for "what comes next" suggestions.
 4. **UI session:** Diego-led redesign.
