@@ -23,7 +23,7 @@ const PHOSPHORS = [
   { name: 'CREAM', p: '#EEE0CB', bg: '#12100C' },
 ];
 const GATES = [0.25, 0.5, 0.8, 1];
-const LOOP = { w: 640, h: 140, base: 124 };
+const LOOP = { w: 640, h: 130, base: 116 };
 const EU = { w: 640, h: 84, base: 60 };
 const SCOPE = { cx: 190, cy: 130, r: 108 };
 
@@ -53,7 +53,7 @@ export function mountMonitor(c: Controller) {
   }
 
   /* ---------- geometry helpers ---------- */
-  const levelOf = (keyPc: number | undefined) => (keyPc === undefined ? LOOP.base : 112 - (keyPc / 11) * 70);
+  const levelOf = (keyPc: number | undefined) => (keyPc === undefined ? LOOP.base : 104 - (keyPc / 11) * 66);
   const scopePos = (pc: number) => {
     const a = ((pc * 30 - 90) * Math.PI) / 180;
     return { x: SCOPE.cx + SCOPE.r * Math.cos(a), y: SCOPE.cy + SCOPE.r * Math.sin(a) };
@@ -71,11 +71,13 @@ export function mountMonitor(c: Controller) {
 
   function renderKeyline() {
     $('root').textContent = noteLabel(c.scale.root);
-    $('scale').textContent = up(c.scale.def.name);
-    $('size').textContent = c.size === 'triad' ? 'TRIADS' : `${up(c.size)} CHORDS`;
-    $('smooth').textContent = c.smooth ? 'SMOOTH' : 'NO VOICE LEADING';
+    const scaleName = up(c.scale.def.name);
+    $('scale').textContent = scaleName;
+    $('scale').style.fontSize = scaleName.length > 12 ? '26px' : scaleName.length > 8 ? '32px' : '';
+    $('size').textContent = c.size === 'triad' ? 'TRIADS' : up(c.size);
+    $('smooth').textContent = c.smooth ? 'SMOOTH' : 'OFF';
     $('spread').textContent = up(c.spread);
-    $('inv').textContent = ['ROOT POSITION', '1ST INVERSION', '2ND INVERSION', '3RD INVERSION'][c.inversion];
+    $('inv').textContent = ['ROOT', '1ST', '2ND', '3RD'][c.inversion];
     const t = c.take;
     $('take-info').textContent = c.rec === 'recording' ? '● RECORDING' : t ? `${t.beats / 4} ${t.beats === 4 ? 'BAR' : 'BARS'} · ${up(c.takeName)}` : 'NO LOOP YET';
   }
@@ -84,9 +86,9 @@ export function mountMonitor(c: Controller) {
     const t = c.take;
     const svg = $('loop-svg');
     const note = $('loop-note');
-    if (c.rec === 'armed') note.textContent = '· READY · PLAY YOUR FIRST CHORD';
-    else if (c.rec === 'recording') note.textContent = '· RECORDING · PRESS STOP TO CLOSE THE LOOP';
-    else note.textContent = t ? '· WHAT YOU PLAYED, ON REPEAT' : '· PRESS REC, THEN PLAY CHORDS';
+    if (c.rec === 'armed') note.textContent = 'READY · PLAY YOUR FIRST CHORD';
+    else if (c.rec === 'recording') note.textContent = 'RECORDING · STOP CLOSES THE LOOP';
+    else note.textContent = t ? 'ON REPEAT' : 'PRESS REC, THEN PLAY';
     if (!t || c.rec !== 'idle') {
       svg.innerHTML = `<path d="M0 ${LOOP.base} L${LOOP.w} ${LOOP.base}" stroke="var(--p)" stroke-width="2" stroke-opacity=".5" stroke-dasharray="${c.rec === 'idle' ? '4 6' : '0'}" fill="none"/>`;
       return;
@@ -127,7 +129,7 @@ export function mountMonitor(c: Controller) {
     const hits = steps.filter(Boolean).length;
     const name = grooveName(p);
     $('eu-title').textContent = `EUCLIDEAN E(${hits},${n})`;
-    $('eu-note').textContent = c.euclidOn ? '· HOLD A CHORD: IT PLAYS ON EVERY SPIKE' : '· OFF · CHORDS PLAY WHEN YOU PRESS KEYS';
+    $('eu-note').textContent = c.euclidOn ? 'HOLD A CHORD: IT PLAYS ON EVERY SPIKE' : 'OFF · CHORDS PLAY WHEN YOU PRESS KEYS';
     $('v-steps').textContent = String(n);
     $('v-hits').textContent = String(hits);
     $('v-rot').textContent = String(p.rotate);
@@ -137,7 +139,6 @@ export function mountMonitor(c: Controller) {
     $('eu-ctl').classList.toggle('is-off', !c.euclidOn);
     $('eu-ctl').classList.toggle('eu-dim', !c.euclidOn);
     const eu = $('eu');
-    eu.classList.toggle('on', c.euclidOn);
     eu.setAttribute('aria-checked', String(c.euclidOn));
     $('eu-state').textContent = c.euclidOn ? 'ON' : 'OFF';
   }
@@ -275,12 +276,12 @@ export function mountMonitor(c: Controller) {
   const scaleIds = SCALES.map((s) => s.id) as ScaleId[];
   $('scale-prev').onclick = () => c.set('scaleId', cycle(scaleIds, c.scaleId, -1));
   $('scale-next').onclick = () => c.set('scaleId', cycle(scaleIds, c.scaleId, 1));
-  $('size').onclick = () => c.set('size', cycle(CHORD_SIZES, c.size, 1));
-  $('smooth').onclick = () => c.set('smooth', !c.smooth);
-  $('spread').onclick = () => c.set('spread', cycle(SPREADS, c.spread, 1));
-  $('inv').onclick = () => c.set('inversion', (c.inversion + 1) % (c.size === 'triad' ? 3 : 4));
-  $('v-rate').onclick = () => c.setPattern({ ...c.pattern, rate: cycle(RATES, c.pattern.rate, 1) });
-  $('v-gate').onclick = () => c.setPattern({ ...c.pattern, gate: GATES[(GATES.findIndex((g) => g >= c.pattern.gate - 0.01) + 1) % GATES.length] });
+  $('opt-size').onclick = () => c.set('size', cycle(CHORD_SIZES, c.size, 1));
+  $('opt-smooth').onclick = () => c.set('smooth', !c.smooth);
+  $('opt-spread').onclick = () => c.set('spread', cycle(SPREADS, c.spread, 1));
+  $('opt-inv').onclick = () => c.set('inversion', (c.inversion + 1) % (c.size === 'triad' ? 3 : 4));
+  $('v-rate-btn').onclick = () => c.setPattern({ ...c.pattern, rate: cycle(RATES, c.pattern.rate, 1) });
+  $('v-gate-btn').onclick = () => c.setPattern({ ...c.pattern, gate: GATES[(GATES.findIndex((g) => g >= c.pattern.gate - 0.01) + 1) % GATES.length] });
   $('groove-prev').onclick = () => stepGroove(-1);
   $('groove-next').onclick = () => stepGroove(1);
   $('eu').onclick = () => { c.synth.unlock(); c.setEuclid(!c.euclidOn); };

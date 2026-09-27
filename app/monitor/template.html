@@ -78,17 +78,47 @@
   #rec[data-state="armed"], #rec[data-state="recording"] { animation: blink 1s infinite; }
   #rec[data-state="recording"] .led { border-radius: 2px; }
 
+
+  /* key / scale / options: visibly interactive */
+  .keyline { height: auto; align-items: flex-end; gap: 22px; }
+  .kgroup { display: flex; flex-direction: column; gap: 4px; }
+  .kctl { display: flex; align-items: center; gap: 6px; }
+  .arrow.ring { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--p); opacity: .9; box-shadow: 0 0 8px color-mix(in srgb, var(--p) 35%, transparent); }
+  .arrow.ring:hover { background: var(--p); color: var(--bg); text-shadow: none; }
+  .opts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .opt { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 6px 26px 6px 10px; position: relative; border: 1.5px solid color-mix(in srgb, var(--p) 70%, transparent); border-radius: 8px; text-shadow: var(--glow); }
+  .opt:hover { border-color: var(--p); box-shadow: 0 0 12px color-mix(in srgb, var(--p) 40%, transparent); }
+  .opt-lbl { font: 500 9px/1 var(--mono); letter-spacing: .12em; opacity: .75; }
+  .opt-val { font: 500 15px/1 var(--cond); letter-spacing: .08em; }
+  .opt-ic { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); font-size: 11px; }
+
+  /* sections: the control sits on top of what it controls */
+  .sec { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+  .sec-head { display: flex; align-items: center; gap: 10px; min-height: 32px; }
+  .sec-title { font: 500 14px/1 var(--cond); letter-spacing: .18em; text-shadow: var(--glow); }
+  .note { font: 400 12px/1 var(--mono); letter-spacing: .06em; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .btn.sm { height: 32px; padding: 0 12px; font-size: 13px; }
+  .btn.ghost { border-color: color-mix(in srgb, var(--p) 60%, transparent); box-shadow: none; }
+  .switch { position: relative; height: 32px; min-width: 96px; padding: 0 40px 0 14px; display: inline-flex; align-items: center; border: 1.5px solid var(--p); border-radius: 16px; font: 500 13px/1 var(--cond); letter-spacing: .16em; text-shadow: var(--glow); }
+  .switch .knob { position: absolute; right: 5px; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; border: 1.5px solid var(--p); transition: background .15s ease; }
+  .switch[aria-checked="true"] { background: var(--p); color: var(--bg); text-shadow: none; box-shadow: 0 0 16px var(--p); }
+  .switch[aria-checked="true"] .knob { background: var(--bg); border-color: var(--bg); }
+  .trace { margin-top: 2px; }
+  .eu-ctl { margin-top: 10px; gap: 8px; }
+  .ctl { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--p) 55%, transparent); border-radius: 14px; font: 500 11px/1 var(--mono); letter-spacing: .06em; text-shadow: var(--glow); }
+  button.ctl:hover, .ctl:hover { border-color: var(--p); }
+
   /* right */
   .box { border: 1.5px solid var(--p); padding: 12px 16px 0; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 0 12px color-mix(in srgb, var(--p) 30%, transparent), inset 0 0 12px color-mix(in srgb, var(--p) 16%, transparent); }
   .lbl { font: 500 11px/1 var(--cond); letter-spacing: .16em; opacity: .85; text-shadow: var(--glow); }
   .row { display: flex; justify-content: space-between; align-items: center; }
-  .bpm { width: 150px; font: 300 90px/1 var(--cond); letter-spacing: -.01em; text-shadow: var(--glow); -moz-appearance: textfield; }
+  .bpm { width: 190px; font: 300 84px/1 var(--cond); letter-spacing: -.01em; text-shadow: var(--glow); -moz-appearance: textfield; }
   .bpm::-webkit-outer-spin-button, .bpm::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .mini { height: 26px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--p) 55%, transparent); border-radius: 13px; font: 500 12px/1 var(--mono); text-shadow: var(--glow); }
-  .cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1.5px solid var(--p); margin-top: 6px; }
+  .cells { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, .75fr); border-top: 1.5px solid var(--p); margin-top: 6px; }
   .cell { display: flex; flex-direction: column; gap: 6px; padding: 10px 0 12px; min-width: 0; }
   .cell.mid-cell { padding-left: 12px; padding-right: 12px; border-left: 1.5px solid var(--p); border-right: 1.5px solid var(--p); margin: 0 12px; }
-  .cell-val { font: 400 22px/1 var(--cond); text-shadow: var(--glow); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cell-val { font: 400 20px/1 var(--cond); text-shadow: var(--glow); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cell-sub { font: 400 11px/1 var(--mono); opacity: .7; }
 
   .scope { position: relative; flex-grow: 1; }
@@ -142,50 +172,60 @@
         <div class="main">
           <div class="left">
             <div class="keyline">
-              <button class="arrow" id="root-prev" type="button" aria-label="Previous key">◂</button>
-              <span class="big" id="root">C</span>
-              <button class="arrow" id="root-next" type="button" aria-label="Next key">▸</button>
-              <span class="dot-sep">·</span>
-              <button class="arrow" id="scale-prev" type="button" aria-label="Previous scale">◂</button>
-              <span class="big" id="scale">MAJOR</span>
-              <button class="arrow" id="scale-next" type="button" aria-label="Next scale">▸</button>
+              <div class="kgroup">
+                <span class="lbl">KEY</span>
+                <div class="kctl"><button class="arrow ring" id="root-prev" type="button" aria-label="Previous key">◂</button><span class="big" id="root" style="min-width:58px;text-align:center">C</span><button class="arrow ring" id="root-next" type="button" aria-label="Next key">▸</button></div>
+              </div>
+              <div class="kgroup">
+                <span class="lbl">SCALE</span>
+                <div class="kctl"><button class="arrow ring" id="scale-prev" type="button" aria-label="Previous scale">◂</button><span class="big" id="scale" style="min-width:150px;text-align:center">MAJOR</span><button class="arrow ring" id="scale-next" type="button" aria-label="Next scale">▸</button></div>
+              </div>
               <span style="flex-grow:1"></span>
               <span class="mid dim" id="take-info"></span>
             </div>
-            <div class="subline">
-              <button id="size" type="button" title="Chord size"></button><span class="sep">·</span>
-              <button id="smooth" type="button" title="Voice leading"></button><span class="sep">·</span>
-              <button id="spread" type="button" title="Spread"></button><span class="sep">·</span>
-              <button id="inv" type="button" title="Inversion"></button>
+            <div class="opts" role="group" aria-label="Chord sound">
+              <button class="opt" id="opt-size" type="button" title="Chord size: triads, 7ths, 9ths, 11ths, 13ths"><span class="opt-lbl">CHORDS</span><span class="opt-val" id="size"></span><span class="opt-ic" aria-hidden="true">▸</span></button>
+              <button class="opt" id="opt-smooth" type="button" title="Voice leading: each chord moves as little as possible from the last"><span class="opt-lbl">VOICE LEADING</span><span class="opt-val" id="smooth"></span><span class="opt-ic" aria-hidden="true">▸</span></button>
+              <button class="opt" id="opt-spread" type="button" title="How spread out the notes are"><span class="opt-lbl">SPREAD</span><span class="opt-val" id="spread"></span><span class="opt-ic" aria-hidden="true">▸</span></button>
+              <button class="opt" id="opt-inv" type="button" title="Which chord note is lowest"><span class="opt-lbl">INVERSION</span><span class="opt-val" id="inv"></span><span class="opt-ic" aria-hidden="true">▸</span></button>
             </div>
 
-            <div class="trace" id="loop-trace">
-              <div class="trace-label"><span>LOOP</span><span id="loop-note" class="dim"></span></div>
-              <svg id="loop-svg" width="640" height="140" viewBox="0 0 640 140"></svg>
-              <div class="sweep" id="loop-dot"></div>
-            </div>
+            <section class="sec" aria-labelledby="loop-title">
+              <div class="sec-head">
+                <span class="sec-title" id="loop-title">LOOP</span>
+                <span class="note" id="loop-note"></span>
+                <span style="flex-grow:1"></span>
+                <button class="btn sm" id="rec" type="button" data-state="idle"><span class="led"></span><span id="rec-label">REC</span></button>
+                <button class="btn sm" id="play" type="button"><span id="play-label">▶ PLAY</span></button>
+                <button class="btn sm ghost" id="ideas" type="button" aria-haspopup="dialog">IDEAS</button>
+                <button class="btn sm ghost" id="save" type="button">SAVE MIDI</button>
+              </div>
+              <div class="trace" id="loop-trace">
+                <svg id="loop-svg" width="640" height="130" viewBox="0 0 640 130"></svg>
+                <div class="sweep" id="loop-dot"></div>
+              </div>
+            </section>
 
-            <div class="trace" id="eu-trace">
-              <div class="trace-label"><span id="eu-title">EUCLIDEAN</span><span id="eu-note" class="dim"></span></div>
-              <svg id="eu-svg" width="640" height="84" viewBox="0 0 640 84"></svg>
-              <div class="sweep" id="eu-dot"></div>
-            </div>
-            <div class="eu-ctl eu-dim" id="eu-ctl">
-              <span>STEPS <button class="arrow" data-edit="steps:-1" type="button" aria-label="Fewer steps">◂</button><b id="v-steps"></b><button class="arrow" data-edit="steps:1" type="button" aria-label="More steps">▸</button></span>
-              <span>HITS <button class="arrow" data-edit="hits:-1" type="button" aria-label="Fewer hits">◂</button><b id="v-hits"></b><button class="arrow" data-edit="hits:1" type="button" aria-label="More hits">▸</button></span>
-              <span>ROTATE <button class="arrow" data-edit="rotate:-1" type="button" aria-label="Rotate back">◂</button><b id="v-rot"></b><button class="arrow" data-edit="rotate:1" type="button" aria-label="Rotate forward">▸</button></span>
-              <span>STEP <button class="val" id="v-rate" type="button" title="Step length"></button></span>
-              <span>LENGTH <button class="val" id="v-gate" type="button" title="Note length"></button></span>
-              <span>GROOVE <button class="arrow" id="groove-prev" type="button" aria-label="Previous groove">◂</button><b id="v-groove" style="min-width:80px"></b><button class="arrow" id="groove-next" type="button" aria-label="Next groove">▸</button></span>
-            </div>
-
-            <div class="buttons">
-              <button class="btn" id="rec" type="button" data-state="idle"><span class="led"></span><span id="rec-label">REC</span></button>
-              <button class="btn" id="play" type="button"><span id="play-label">▶ PLAY</span></button>
-              <button class="btn" id="eu" type="button" role="switch" aria-checked="false">EUCLIDEAN <span id="eu-state">OFF</span></button>
-              <button class="btn" id="ideas" type="button" aria-haspopup="dialog">IDEAS</button>
-              <button class="btn" id="save" type="button">SAVE MIDI</button>
-            </div>
+            <section class="sec" aria-labelledby="eu-title">
+              <div class="sec-head">
+                <span class="sec-title" id="eu-title">EUCLIDEAN</span>
+                <span class="note" id="eu-note"></span>
+                <span style="flex-grow:1"></span>
+                <button class="switch" id="eu" type="button" role="switch" aria-checked="false" aria-label="Euclidean sequencer"><span id="eu-state">OFF</span><span class="knob" aria-hidden="true"></span></button>
+              </div>
+              <div class="trace" id="eu-trace">
+                <svg id="eu-svg" width="640" height="84" viewBox="0 0 640 84"></svg>
+                <div class="sweep" id="eu-dot"></div>
+              </div>
+              <div class="eu-ctl eu-dim" id="eu-ctl">
+                <span class="ctl">STEPS <button class="arrow" data-edit="steps:-1" type="button" aria-label="Fewer steps">◂</button><b id="v-steps"></b><button class="arrow" data-edit="steps:1" type="button" aria-label="More steps">▸</button></span>
+                <span class="ctl">HITS <button class="arrow" data-edit="hits:-1" type="button" aria-label="Fewer hits">◂</button><b id="v-hits"></b><button class="arrow" data-edit="hits:1" type="button" aria-label="More hits">▸</button></span>
+                <span class="ctl">ROTATE <button class="arrow" data-edit="rotate:-1" type="button" aria-label="Rotate back">◂</button><b id="v-rot"></b><button class="arrow" data-edit="rotate:1" type="button" aria-label="Rotate forward">▸</button></span>
+                <button class="ctl" id="v-rate-btn" type="button" title="Step length">STEP <b id="v-rate"></b> ▸</button>
+                <button class="ctl" id="v-gate-btn" type="button" title="Note length">LENGTH <b id="v-gate"></b> ▸</button>
+                <span class="ctl">GROOVE <button class="arrow" id="groove-prev" type="button" aria-label="Previous groove">◂</button><b id="v-groove" style="min-width:78px"></b><button class="arrow" id="groove-next" type="button" aria-label="Next groove">▸</button></span>
+              </div>
+            </section>
           </div>
 
           <div class="right">
