@@ -11,7 +11,12 @@
 - **Key map:** a chord on every key. White = 7 scale chords, black = 5 color chords (borrowed chords and secondary dominants, rule-picked, each with a reason)
 - **Phase 2:** voicing engine: octave follows the key, inversions, close/open(drop 2)/wide, trimming for 11ths/13ths
 - **Phase 3 (code):** Web MIDI bridge: Arturia in → chords → IAC out, reference-counted notes (no stuck or cut notes), loop protection, sustain/mod/pitch-bend pass-through, panic
-- 306 automated tests
+- **Phase 3 verified on real hardware** (Diego, Arturia → Chrome → Ableton): works and sounds good
+- **Phase 6:** voice leading ("Smooth", on by default): least movement between chords, with a pull back to home register
+- **Phase 7:** progression engine: 16 famous presets, seeded generator (length 4/8, Pop or Bach style, Tension, Color), next-chord hints on the key map
+  - Bach style learned from 368 J.S. Bach chorales (music21 corpus): `scripts/extract-bach.py` → `engine/bach-data.ts`
+- **Chord player:** loops the progression one chord per bar at a set BPM, through the browser synth and MIDI out; Record from keys; Save MIDI file (local app)
+- 328 automated tests
 - Review build: https://claude.ai/artifact/HLa4a4wpGA6HR4Xzt69rT9 (MIDI works only in the local version)
 
 ## Decisions (Diego)
@@ -21,10 +26,10 @@
 - UI direction for later: basic but attractive, Ableton-like clarity with some sex appeal. Redesign in its own session.
 
 ## Next
-1. **Phase 3 test on Diego’s Mac:** repo is in place. Double-click `Start Harmonic.command`, allow MIDI in Chrome, turn on the IAC Driver, route in Ableton. Report back what works.
-2. **Phase 6: voice leading.** Pick the inversion that moves least from the previous chord ("Connected ↔ Independent" control).
-3. **Phase 7: progressions.** Explore learning chord-to-chord probabilities from Bach chorales (public domain) for "what comes next" suggestions.
-4. **UI session:** Diego-led redesign.
+1. **Diego listens:** presets, Generate (Pop vs Bach, Tension, Color), hints, Smooth on/off. What sounds great, what doesn't.
+2. **Phase 8–9: Euclidean rhythm + harmonic sequencer.** Rhythm patterns applied to the progression (chords, bass, arps). Sync tempo to Ableton later.
+3. **UI session:** Diego-led redesign ("basic but attractive, Ableton-like, a little sexy"). Progression-building flow is the centrepiece.
+4. Later: swap a key's color chord, real-pitch layout option, AI prompt → parameters.
 
 ## Repo
 `engine/` (notes, scales, chords, chordmap, voicing) · `explorer/` (app.ts, midi.ts, template.html) · `tests/` · `scripts/` · `docs/`

@@ -3,7 +3,7 @@
  * can never drift from what the code actually does. Run: npm run spec
  */
 import { writeFileSync } from 'node:fs';
-import { SCALES, buildScale, diatonicChords, noteLabel, buildChordMap, BLACK_PCS, WHITE_PCS, voiceChord, diatonicChord } from '../engine';
+import { SCALES, buildScale, diatonicChords, noteLabel, buildChordMap, BLACK_PCS, WHITE_PCS, voiceChord, diatonicChord, voiceLead, PRESETS, resolvePreset, scaleFromPitchClass, transitionTable, BACH_CHORALES } from '../engine';
 
 const lines: string[] = [];
 const w = (s = '') => lines.push(s);
@@ -28,10 +28,10 @@ const vocab: [string, string, string][] = [
   ['Color chord', 'A chord from outside the scale that is commonly used in it: a borrowed chord (from a scale with the same tonic) or a secondary dominant (V7 of one of the scale’s chords).', 'Built'],
   ['Inversion', 'Which chord tone is lowest. Root position, 1st (3rd in bass), 2nd (5th in bass), 3rd (7th in bass).', 'Built'],
   ['Voicing', 'The actual MIDI notes: octave, inversion, spread (close / open = drop 2 / wide = open + bass), and which notes are trimmed.', 'Built'],
-  ['Voice leading', 'Choosing the voicing of the next chord that moves the fewest total semitones from the current one.', 'Phase 6'],
-  ['Progression', 'An ordered list of chord events (degree + size + voicing + duration).', 'Phase 7'],
+  ['Voice leading', 'Choosing the voicing of the next chord that moves the fewest total semitones from the current one, while staying near the key you pressed.', 'Built'],
+  ['Progression', 'An ordered list of keys (0 = C key … 11 = B key). Stored as keys, so changing root or scale re-harmonises it.', 'Built'],
   ['Euclidean rhythm', 'Distribute K hits as evenly as possible over N steps, then rotate by R. Knows nothing about chords.', 'Phase 8'],
-  ['Harmonic tension', 'A 0–1 score per chord. Draft: diminished/augmented > dominant 7th > minor > major; more extensions and altered tensions raise it; distance from degree 1 raises it. To be finalised with you.', 'Phase 7 (draft)'],
+  ['Harmonic tension', 'A 0–1 score per chord: by function (I 0, vi .2, iii .3, IV .35, ii .45, V .7, vii .85), +.2 diminished, +.25 augmented, +.15 color chord; secondary dominants .75.', 'Built'],
 ];
 for (const [t, m, s] of vocab) w(`| **${t}** | ${m} | ${s} |`);
 w();
@@ -109,7 +109,52 @@ w('| Example | MIDI notes (60 = middle C) |');
 w('|---|---|');
 for (const [name, notes] of ex) w(`| ${name} | ${notes.join(' ')} |`);
 w();
-w('## 7. Decisions');
+w('## 7. Voice leading and progressions');
+w();
+w('**Voice leading** (on by default, "Smooth"): for each new chord, try every inversion in three octaves and keep the one with the least movement from the last chord, plus half the distance from the home register (stops the chords creeping up or down).');
+w();
+{
+  const C = buildScale('C', 'ionian');
+  const roots = [60, 67, 69, 65];
+  let prev: number[] | null = null;
+  const rows = [1, 5, 6, 4].map((d, i) => {
+    const c = diatonicChord(C, d, '7th');
+    const plain = voiceChord(c, roots[i]);
+    prev = voiceLead(c, roots[i], prev);
+    return `| ${c.symbol} | ${plain.join(' ')} | ${prev.join(' ')} |`;
+  });
+  w('| C major, I–V–vi–IV | Without voice leading | Smooth |');
+  w('|---|---|---|');
+  rows.forEach((r) => w(r));
+  w();
+}
+w(`**Chord-to-chord probabilities.** Two styles: *Bach*, learned from ${BACH_CHORALES.major + BACH_CHORALES.minor} J.S. Bach chorales (${BACH_CHORALES.major} major, ${BACH_CHORALES.minor} minor) via the music21 corpus, and *Pop*, learned from the famous-progression presets below (looped). Major-3rd scales use the major table, minor-3rd scales the minor table.`);
+w();
+{
+  const P = transitionTable(buildScale('C', 'ionian'), 'bach');
+  const R = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
+  w('Bach, major keys: probability of the next chord (rows = from).');
+  w();
+  w('| from \\ to | ' + R.join(' | ') + ' |');
+  w('|---|' + R.map(() => '---').join('|') + '|');
+  P.forEach((row, i) => w(`| **${R[i]}** | ` + row.map((x) => (x >= 0.3 ? `**${Math.round(x * 100)}%**` : `${Math.round(x * 100)}%`)).join(' | ') + ' |'));
+  w();
+}
+w('**Generator** (deterministic, seeded): sample 240 random walks from the tonic, score each on likelihood (including the loop back to the start), closeness to the Tension target, variety, and fewer diminished chords when calm. Pick one of the top 12, weighted by score, so every press is good but different. Then a Color pass swaps some chords for black-key chords doing the same job (a borrowed stand-in for the same degree, or a secondary dominant into the next chord).');
+w();
+w('**Next-chord hints:** after each chord, the 3 likeliest next scale chords glow (1–3), plus one color chord that can stand in for one of them (✦). A secondary dominant always suggests its target first.');
+w();
+w('**Famous progressions** (written as degrees, so they work in any key; loading one switches to its scale):');
+w();
+w('| Name | Mood | Scale | In C |');
+w('|---|---|---|---|');
+for (const p of PRESETS) {
+  const s = scaleFromPitchClass(0, p.scale);
+  const m = buildChordMap(s, 'triad');
+  w(`| ${p.name} | ${p.mood} | ${SCALES.find((x) => x.id === p.scale)!.name} | ${resolvePreset(p, m).map((k) => m[k].chord.symbol).join(' – ')} |`);
+}
+w();
+w('## 8. Decisions');
 w();
 w('| # | Decision | Status |');
 w('|---|---|---|');
@@ -118,8 +163,10 @@ const decisions: [string, string][] = [
   ['Every key plays a chord, black keys included: white = scale, black = color chords.', 'Decided (Diego)'],
   ['Default chord size: 7th. Size is switchable.', 'Decided (Diego)'],
   ['Numerals relative to the major scale (♭III, ♭VII).', 'Default, not yet reviewed'],
-  ['Harmonic tension scoring (draft in §1).', 'Open, Phase 7'],
-  ['Progression engine may learn chord-to-chord probabilities from Bach chorales (public domain).', 'Idea, Phase 7'],
+  ['Harmonic tension scoring (§1).', 'Built, tune by ear'],
+  ['Progression engine learns chord-to-chord probabilities from Bach chorales (public domain).', 'Built'],
+  ['Voice leading on by default.', 'Default, not yet reviewed'],
+  ['Progressions play one chord per bar; rhythm comes from the Euclidean sequencer (Phase 8).', 'Next'],
   ['Real-pitch layout (the key you press is the chord root) as an option.', 'Idea, later'],
   ['Swap a key’s color chord from a ranked list of alternatives.', 'Idea, UI phase'],
 ];

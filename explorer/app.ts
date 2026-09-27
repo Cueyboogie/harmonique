@@ -1,12 +1,14 @@
 /**
- * Harmonic — engine review build (Phases 0–3).
- * Real engine + chord map + voicing, a tiny Web Audio synth, and a Web MIDI bridge.
+ * Harmonic — engine review build (Phases 0–7).
+ * Real engine + chord map + voicing + voice leading + progressions,
+ * a tiny Web Audio synth, a chord player, and a Web MIDI bridge.
  * Not the product UI: a window onto the engine for review, learning, and playing.
  */
 import {
   SCALES, CHORD_SIZES, SPREADS, scaleFromPitchClass, degreeLabels, noteLabel,
-  buildChordMap, chordForKey, voiceChord, QUALITY_LABEL, WHITE_PCS, BLACK_PCS,
-  type ScaleId, type ChordSize, type Spread, type Scale, type ChordSlot,
+  buildChordMap, chordForKey, voiceLead, QUALITY_LABEL, WHITE_PCS, BLACK_PCS,
+  PRESETS, resolvePreset, generateProgression, suggestNext, writeMidi,
+  type ScaleId, type ChordSize, type Spread, type Scale, type ChordSlot, type Style, type Suggestion, type Preset,
 } from '../engine';
 import { MidiBridge } from './midi';
 
@@ -18,6 +20,11 @@ const state = {
   spread: 'close' as Spread,
   sound: true,
   kbOctave: 4,
+  /** Voice leading: each chord moves as little as possible from the last one. */
+  smooth: true,
+  /** Glow the keys most likely to come next. */
+  hints: true,
+  style: 'pop' as Style,
 };
 const KB_LOW = 36; // C2 — 49 keys, like a KeyLab 49
 const KB_HIGH = 84; // C6
@@ -94,6 +101,9 @@ function synthOff(note: number) {
 interface Held { notes: number[]; keyMidi: number; slot: ChordSlot; ch: number; synth: boolean }
 const held = new Map<string, Held>();
 let last: { slot: ChordSlot; notes: number[]; keyMidi: number } | null = null;
+/** Notes of the most recent chord, for voice leading. */
+let lastNotes: number[] | null = null;
+let hints: Suggestion[] = [];
 
 const midi = new MidiBridge({
   noteOn: (note, vel, ch) => triggerOn(`midi:${ch}:${note}`, note, vel, ch),
@@ -104,7 +114,10 @@ const midi = new MidiBridge({
 function triggerOn(src: string, keyMidi: number, velocity = 100, ch = 0) {
   if (held.has(src)) triggerOff(src);
   const hit = chordForKey(keyMidi, scale, map);
-  const notes = voiceChord(hit.slot.chord, hit.rootMidi, { inversion: state.inversion, spread: state.spread });
+  const notes = voiceLead(hit.slot.chord, hit.rootMidi, state.smooth ? lastNotes : null, {
+    inversion: state.inversion, spread: state.spread,
+  });
+  lastNotes = notes;
   const synth = state.sound;
   held.set(src, { notes, keyMidi, slot: hit.slot, ch, synth });
   for (const n of notes) {
@@ -112,6 +125,8 @@ function triggerOn(src: string, keyMidi: number, velocity = 100, ch = 0) {
     midi.send(n, velocity, ch);
   }
   last = { slot: hit.slot, notes, keyMidi };
+  hints = suggestNext(scale, map, hit.slot.keyPc, state.style);
+  if (src !== 'seq') captureChord(hit.slot.keyPc);
   renderLive();
 }
 
@@ -192,6 +207,8 @@ function renderControls() {
   segmented($('inversions'), [0, 1, 2, 3], state.inversion, (i) => ['Root', '1st', '2nd', '3rd'][i],
     (i) => { state.inversion = i; update(); }, 'inv', (i) => i > maxInv);
   segmented($('spreads'), SPREADS, state.spread, (s) => s[0].toUpperCase() + s.slice(1), (s) => { state.spread = s; update(); }, 'spread');
+  segmented($('vl'), ['smooth', 'off'] as const, state.smooth ? 'smooth' : 'off', (v) => (v === 'smooth' ? 'Smooth' : 'Off'),
+    (v) => { state.smooth = v === 'smooth'; update(); }, 'vl');
 }
 
 function renderInfo() {
@@ -296,7 +313,14 @@ function paintKeyboard() {
     if (pressed.has(m)) k.classList.add('pressed');
   });
   const heldPcs = new Set([...held.values()].map((h) => h.keyMidi % 12));
-  document.querySelectorAll<HTMLElement>('.cell').forEach((c) => c.classList.toggle('is-on', heldPcs.has(Number(c.dataset.pc))));
+  const rank = new Map<number, string>();
+  if (state.hints && last) hints.forEach((h, i) => rank.set(h.keyPc, h.kind === 'spice' ? 'spice' : String(i + 1)));
+  document.querySelectorAll<HTMLElement>('.cell').forEach((c) => {
+    const pc = Number(c.dataset.pc);
+    c.classList.toggle('is-on', heldPcs.has(pc));
+    const r = heldPcs.size ? undefined : rank.get(pc);
+    if (r) c.dataset.hint = r; else delete c.dataset.hint;
+  });
 }
 
 function renderLive() {
@@ -346,6 +370,7 @@ function renderMidi() {
 
 function update() {
   releaseAll();
+  lastNotes = null;
   compute();
   state.inversion = Math.min(state.inversion, state.size === 'triad' ? 2 : 3);
   renderControls();
@@ -353,13 +378,152 @@ function update() {
   renderMap();
   renderKeyboard();
   renderLive();
+  renderProg();
+}
+
+/* ================= progressions: presets, generator, player, recorder ================= */
+const prog = {
+  keys: [0, 7, 9, 5] as number[],
+  label: 'Pop anthem',
+  length: 4,
+  tension: 0.4,
+  color: 0.25,
+  seed: 0,
+  bpm: 96,
+  playing: false,
+  step: -1,
+  capture: false,
+};
+let seqTimer = 0;
+let gateTimer = 0;
+let nextTime = 0;
+
+const keyMidiFor = (pc: number) => (state.kbOctave + 1) * 12 + pc;
+
+function renderProg() {
+  const presets = $('presets');
+  presets.innerHTML = '';
+  for (const p of PRESETS) {
+    const b = document.createElement('button');
+    b.className = 'chip chip-sm';
+    b.id = `preset-${p.id}`;
+    b.title = p.mood;
+    b.innerHTML = `${p.name}`;
+    b.setAttribute('aria-pressed', String(prog.label === p.name));
+    b.onclick = () => loadPreset(p);
+    presets.appendChild(b);
+  }
+  segmented($('gen-length'), [4, 8], prog.length, (n) => `${n} chords`, (n) => { prog.length = n; renderProg(); }, 'len');
+  segmented($('gen-style'), ['pop', 'bach'] as const, state.style, (s) => (s === 'pop' ? 'Pop' : 'Bach'),
+    (s) => { state.style = s; renderProg(); }, 'style');
+
+  const strip = $('prog-strip');
+  strip.innerHTML = '';
+  strip.style.setProperty('--n', String(Math.max(4, prog.keys.length)));
+  if (!prog.keys.length) {
+    strip.innerHTML = `<p class="strip-empty">${prog.capture ? 'Recording: play chords on your keyboard (up to 8).' : 'Empty. Pick a famous progression, press Generate, or Record from keys.'}</p>`;
+  }
+  prog.keys.forEach((pc, i) => {
+    const slot = map[pc];
+    const b = document.createElement('button');
+    b.className = `pcell q-${slot.chord.triad}` + (slot.kind === 'color' ? ' is-color' : '') + (prog.step === i ? ' is-step' : '');
+    b.id = `pcell-${i}`;
+    b.innerHTML = `<span class="pcell-top"><span class="pcell-n">${i + 1}</span><span class="pcell-roman">${slot.chord.roman}</span></span>
+      <span class="pcell-symbol">${slot.chord.symbol}</span><span class="pcell-key">${KEY_NAMES[pc]} key</span>`;
+    holdable(b, () => `prog:${i}`, () => keyMidiFor(pc));
+    strip.appendChild(b);
+  });
+  $('prog-label').textContent = prog.label;
+  $('prog-play').textContent = prog.playing ? 'Stop' : 'Play';
+  $('prog-play').setAttribute('aria-pressed', String(prog.playing));
+  $<HTMLButtonElement>('prog-play').disabled = !prog.keys.length;
+  $('prog-capture').setAttribute('aria-pressed', String(prog.capture));
+  $('prog-capture').textContent = prog.capture ? 'Recording…' : 'Record from keys';
+}
+
+function loadPreset(p: Preset) {
+  state.scaleId = p.scale;
+  update();
+  prog.keys = resolvePreset(p, map);
+  prog.label = p.name;
+  prog.capture = false;
+  renderProg();
+  if (!prog.playing) play();
+}
+
+function generate() {
+  prog.seed += 1;
+  const g = generateProgression(scale, map, {
+    length: prog.length, style: state.style, tension: prog.tension, color: prog.color, seed: prog.seed,
+  });
+  prog.keys = g.keys;
+  prog.label = `Generated · ${state.style === 'pop' ? 'Pop' : 'Bach'} #${prog.seed}`;
+  prog.capture = false;
+  renderProg();
+  if (!prog.playing) play();
+}
+
+function captureChord(pc: number) {
+  if (!prog.capture || prog.playing) return;
+  if (prog.label !== 'Recorded') { prog.keys = []; prog.label = 'Recorded'; }
+  prog.keys.push(pc);
+  if (prog.keys.length >= 8) prog.capture = false;
+  renderProg();
+}
+
+function play() {
+  if (!prog.keys.length) return;
+  prog.playing = true;
+  prog.step = -1;
+  lastNotes = null;
+  nextTime = performance.now() + 30;
+  seqTimer = window.setTimeout(tick, 30);
+  renderProg();
+}
+
+function tick() {
+  if (!prog.playing || !prog.keys.length) return stop();
+  const stepMs = (4 * 60000) / prog.bpm; // one chord per bar of 4/4
+  prog.step = (prog.step + 1) % prog.keys.length;
+  triggerOn('seq', keyMidiFor(prog.keys[prog.step]), 96);
+  document.querySelectorAll('.pcell').forEach((c, i) => c.classList.toggle('is-step', i === prog.step));
+  window.clearTimeout(gateTimer);
+  gateTimer = window.setTimeout(() => triggerOff('seq'), stepMs * 0.94);
+  nextTime += stepMs;
+  seqTimer = window.setTimeout(tick, Math.max(0, nextTime - performance.now()));
+}
+
+function stop() {
+  prog.playing = false;
+  prog.step = -1;
+  window.clearTimeout(seqTimer);
+  window.clearTimeout(gateTimer);
+  triggerOff('seq');
+  renderProg();
+}
+
+function saveMidi() {
+  let prev: number[] | null = null;
+  const events = prog.keys.map((pc, i) => {
+    const hit = chordForKey(keyMidiFor(pc), scale, map);
+    prev = voiceLead(hit.slot.chord, hit.rootMidi, state.smooth ? prev : null, { inversion: state.inversion, spread: state.spread });
+    return { notes: prev, start: i * 4, length: 4, velocity: 96 };
+  });
+  const name = `${noteLabel(scale.root)} ${scale.def.name} - ${prog.label}`;
+  const blob = new Blob([writeMidi(events, prog.bpm, name)], { type: 'audio/midi' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `harmonic-${name.replace(/[^\w#♭♯ -]+/g, '').replace(/\s+/g, '-').toLowerCase()}.mid`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 /* ================= wiring ================= */
 const downKeys = new Set<string>();
 window.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
-  if ((e.target as HTMLElement).tagName === 'SELECT') return;
+  if (['SELECT', 'INPUT'].includes((e.target as HTMLElement).tagName)) return;
+  if (e.code === 'Space' && (e.target as HTMLElement) === document.body) { e.preventDefault(); prog.playing ? stop() : play(); return; }
   if (e.code === 'KeyZ' || e.code === 'KeyX') {
     state.kbOctave = Math.max(1, Math.min(7, state.kbOctave + (e.code === 'KeyX' ? 1 : -1)));
     $('kb-octave').textContent = `C${state.kbOctave - 1}`;
@@ -391,7 +555,37 @@ $<HTMLSelectElement>('midi-out').addEventListener('change', (e) => {
   if (midi.outputId && state.sound) $('sound').click();
   renderMidi();
 });
-$('panic').addEventListener('click', () => { releaseAll(); midi.panic(); });
+$('panic').addEventListener('click', () => { stop(); releaseAll(); midi.panic(); });
+
+$('gen-go').addEventListener('click', generate);
+$('prog-play').addEventListener('click', () => (prog.playing ? stop() : play()));
+$('prog-clear').addEventListener('click', () => { stop(); prog.keys = []; prog.label = 'Empty'; renderProg(); });
+$('prog-capture').addEventListener('click', () => {
+  if (prog.playing) stop();
+  prog.capture = !prog.capture;
+  if (prog.capture) { prog.keys = []; prog.label = 'Recorded'; }
+  renderProg();
+});
+$('prog-midi').addEventListener('click', saveMidi);
+// Downloads are blocked inside shared (framed) pages; only offer the file in the local app.
+$('prog-midi').hidden = window.self !== window.top;
+const tensionInput = $<HTMLInputElement>('gen-tension');
+const colorInput = $<HTMLInputElement>('gen-color');
+const bpmInput = $<HTMLInputElement>('prog-bpm');
+tensionInput.value = String(prog.tension);
+colorInput.value = String(prog.color);
+bpmInput.value = String(prog.bpm);
+tensionInput.addEventListener('input', () => { prog.tension = Number(tensionInput.value); });
+colorInput.addEventListener('input', () => { prog.color = Number(colorInput.value); });
+bpmInput.addEventListener('change', () => {
+  prog.bpm = Math.max(50, Math.min(200, Number(bpmInput.value) || 96));
+  bpmInput.value = String(prog.bpm);
+});
+$('hints').addEventListener('click', () => {
+  state.hints = !state.hints;
+  $('hints').setAttribute('aria-pressed', String(state.hints));
+  paintKeyboard();
+});
 
 update();
 renderMidi();

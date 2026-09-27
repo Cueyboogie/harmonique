@@ -3,3 +3,7 @@ export * from './scales';
 export * from './chords';
 export * from './chordmap';
 export * from './voicing';
+export * from './voiceleading';
+export * from './progression';
+export * from './midifile';
+export * from './bach-data';

@@ -17,10 +17,10 @@
 | **Color chord** | A chord from outside the scale that is commonly used in it: a borrowed chord (from a scale with the same tonic) or a secondary dominant (V7 of one of the scale’s chords). | Built |
 | **Inversion** | Which chord tone is lowest. Root position, 1st (3rd in bass), 2nd (5th in bass), 3rd (7th in bass). | Built |
 | **Voicing** | The actual MIDI notes: octave, inversion, spread (close / open = drop 2 / wide = open + bass), and which notes are trimmed. | Built |
-| **Voice leading** | Choosing the voicing of the next chord that moves the fewest total semitones from the current one. | Phase 6 |
-| **Progression** | An ordered list of chord events (degree + size + voicing + duration). | Phase 7 |
+| **Voice leading** | Choosing the voicing of the next chord that moves the fewest total semitones from the current one, while staying near the key you pressed. | Built |
+| **Progression** | An ordered list of keys (0 = C key … 11 = B key). Stored as keys, so changing root or scale re-harmonises it. | Built |
 | **Euclidean rhythm** | Distribute K hits as evenly as possible over N steps, then rotate by R. Knows nothing about chords. | Phase 8 |
-| **Harmonic tension** | A 0–1 score per chord. Draft: diminished/augmented > dominant 7th > minor > major; more extensions and altered tensions raise it; distance from degree 1 raises it. To be finalised with you. | Phase 7 (draft) |
+| **Harmonic tension** | A 0–1 score per chord: by function (I 0, vi .2, iii .3, IV .35, ii .45, V .7, vii .85), +.2 diminished, +.25 augmented, +.15 color chord; secondary dominants .75. | Built |
 
 ## 2. Core rule
 
@@ -210,7 +210,57 @@ Designed for a 49-key controller (Arturia KeyLab 49). The map repeats every octa
 | Cmaj7, wide | 43 55 60 64 71 |
 | G13, close (trimmed) | 55 59 65 69 76 |
 
-## 7. Decisions
+## 7. Voice leading and progressions
+
+**Voice leading** (on by default, "Smooth"): for each new chord, try every inversion in three octaves and keep the one with the least movement from the last chord, plus half the distance from the home register (stops the chords creeping up or down).
+
+| C major, I–V–vi–IV | Without voice leading | Smooth |
+|---|---|---|
+| Cmaj7 | 60 64 67 71 | 60 64 67 71 |
+| G7 | 67 71 74 77 | 62 65 67 71 |
+| Am7 | 69 72 76 79 | 64 67 69 72 |
+| Fmaj7 | 65 69 72 76 | 64 65 69 72 |
+
+**Chord-to-chord probabilities.** Two styles: *Bach*, learned from 368 J.S. Bach chorales (182 major, 186 minor) via the music21 corpus, and *Pop*, learned from the famous-progression presets below (looped). Major-3rd scales use the major table, minor-3rd scales the minor table.
+
+Bach, major keys: probability of the next chord (rows = from).
+
+| from \ to | I | ii | iii | IV | V | vi | vii° |
+|---|---|---|---|---|---|---|---|
+| **I** | 0% | 19% | 4% | 26% | **34%** | 14% | 3% |
+| **ii** | 20% | 0% | 11% | 4% | **47%** | 14% | 3% |
+| **iii** | 12% | 10% | 0% | 19% | 7% | **50%** | 2% |
+| **IV** | **39%** | 18% | 6% | 0% | 23% | 6% | 8% |
+| **V** | **60%** | 12% | 8% | 6% | 0% | 14% | 1% |
+| **vi** | 14% | **36%** | 12% | 10% | 21% | 0% | 6% |
+| **vii°** | **46%** | 3% | 26% | 6% | 10% | 10% | 0% |
+
+**Generator** (deterministic, seeded): sample 240 random walks from the tonic, score each on likelihood (including the loop back to the start), closeness to the Tension target, variety, and fewer diminished chords when calm. Pick one of the top 12, weighted by score, so every press is good but different. Then a Color pass swaps some chords for black-key chords doing the same job (a borrowed stand-in for the same degree, or a secondary dominant into the next chord).
+
+**Next-chord hints:** after each chord, the 3 likeliest next scale chords glow (1–3), plus one color chord that can stand in for one of them (✦). A secondary dominant always suggests its target first.
+
+**Famous progressions** (written as degrees, so they work in any key; loading one switches to its scale):
+
+| Name | Mood | Scale | In C |
+|---|---|---|---|
+| Pop anthem | Uplifting, stadium | Major | C – G – Am – F |
+| Sensitive | Emotional pop ballad | Major | Am – F – C – G |
+| 50s | Sweet, nostalgic | Major | C – Am – F – G |
+| Royal road | Anime, J-pop lift | Major | F – G – Em – Am |
+| ii–V–I | Jazz, smooth resolve | Major | Dm – G – C – C |
+| Neo-soul fall | Warm, laid-back (try 9ths) | Major | F – Em – Dm – C |
+| Canon | Classical, wedding | Major | C – G – Am – Em – F – C – F – G |
+| Bittersweet | Alt-rock, major-to-minor ache | Major | C – E – F – Fm |
+| Epic minor | Cinematic, heroic | Minor | Cm – A♭ – E♭ – B♭ |
+| Minor loop | Moody, trap/lofi | Minor | Cm – Fm – B♭ – E♭ |
+| Andalusian | Flamenco, dramatic descent | Minor | Cm – B♭ – A♭ – G |
+| Minor drama | Classical tension and release | Harmonic Minor | Cm – Fm – G – Cm |
+| Dorian vamp | Funk, house, hypnotic | Dorian | Cm – F – Cm – F |
+| Mixolydian rock | Anthemic, open | Mixolydian | C – B♭ – F – C |
+| Lydian float | Dreamy, weightless | Lydian | C – D – C – D |
+| Phrygian menace | Dark, metal, tension | Phrygian | Cm – D♭ – Cm – B♭m |
+
+## 8. Decisions
 
 | # | Decision | Status |
 |---|---|---|
@@ -218,7 +268,9 @@ Designed for a 49-key controller (Arturia KeyLab 49). The map repeats every octa
 | 2 | Every key plays a chord, black keys included: white = scale, black = color chords. | Decided (Diego) |
 | 3 | Default chord size: 7th. Size is switchable. | Decided (Diego) |
 | 4 | Numerals relative to the major scale (♭III, ♭VII). | Default, not yet reviewed |
-| 5 | Harmonic tension scoring (draft in §1). | Open, Phase 7 |
-| 6 | Progression engine may learn chord-to-chord probabilities from Bach chorales (public domain). | Idea, Phase 7 |
-| 7 | Real-pitch layout (the key you press is the chord root) as an option. | Idea, later |
-| 8 | Swap a key’s color chord from a ranked list of alternatives. | Idea, UI phase |
+| 5 | Harmonic tension scoring (§1). | Built, tune by ear |
+| 6 | Progression engine learns chord-to-chord probabilities from Bach chorales (public domain). | Built |
+| 7 | Voice leading on by default. | Default, not yet reviewed |
+| 8 | Progressions play one chord per bar; rhythm comes from the Euclidean sequencer (Phase 8). | Next |
+| 9 | Real-pitch layout (the key you press is the chord root) as an option. | Idea, later |
+| 10 | Swap a key’s color chord from a ranked list of alternatives. | Idea, UI phase |

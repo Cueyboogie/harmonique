@@ -35,6 +35,14 @@ export interface ChordSlot {
   reason: string;
   /** Semitones from the tonic to the chord root, 0..11. */
   rootOffset: number;
+  /**
+   * Harmonic function, as a scale degree 1..7:
+   * diatonic → its own degree; borrowed → the degree it stands in for (Minor iv → 4);
+   * secondary dominant → the degree it pulls toward (V of V → 5, see `resolvesTo`).
+   */
+  degree: number;
+  /** Secondary dominants only: the degree this chord wants to resolve to next. */
+  resolvesTo?: number;
 }
 
 /* ---------- spelling helpers ---------- */
@@ -105,21 +113,21 @@ const MINOR_RECIPES: Recipe[] = [
   b('aeolian', 3, '♭III'),
 ];
 
-interface Pick { chord: Chord; role: string; reason: string }
+interface Pick { chord: Chord; role: string; reason: string; degree: number; resolvesTo?: number }
 
 function applyRecipe(r: Recipe, scale: Scale, size: ChordSize): Pick | null {
   const tonic = noteLabel(scale.root);
   if (r.kind === 'borrow') {
     const parallel = cleanScale(scale.root, r.from);
     const chord = diatonicChord(parallel, r.degree, size);
-    return { chord, role: r.role, reason: `Borrowed from ${tonic} ${getScaleDef(r.from).name}` };
+    return { chord, role: r.role, reason: `Borrowed from ${tonic} ${getScaleDef(r.from).name}`, degree: r.degree };
   }
   const target = diatonicChord(scale, r.target, 'triad');
   if (target.triad === 'diminished' || target.triad === 'augmented') return null; // no stable target
   // V7 of X = degree 5 of X major (or X harmonic minor when X is minor): correct spelling + extensions for free.
   const home = cleanScale(target.notes[0], target.triad === 'major' ? 'ionian' : 'harmonicMinor');
   const chord = diatonicChord(home, 5, size);
-  return { chord, role: r.role, reason: `Secondary dominant → ${target.symbol}` };
+  return { chord, role: r.role, reason: `Secondary dominant → ${target.symbol}`, degree: r.target, resolvesTo: r.target };
 }
 
 const QUALITY_WEIGHT: Record<TriadQuality, number> = { major: 2, minor: 2, diminished: 0, augmented: -2 };
@@ -139,6 +147,7 @@ function fallbackPicks(scale: Scale, size: ChordSize): Pick[] {
         role: `Borrowed ${triad.roman}`,
         reason: `Borrowed from ${noteLabel(scale.root)} ${def.name}`,
         score: closeness + QUALITY_WEIGHT[triad.triad] + 2 * common,
+        degree: d,
       });
     }
   }
@@ -178,7 +187,7 @@ export function buildChordMap(scale: Scale, size: ChordSize = '7th'): ChordSlot[
     const chord = diatonicChord(scale, i + 1, size);
     slots[pc] = {
       keyPc: pc, kind: 'diatonic', chord, role: `Degree ${i + 1}`,
-      reason: `${noteLabel(scale.root)} ${scale.def.name}`, rootOffset: rootOffset(chord),
+      reason: `${noteLabel(scale.root)} ${scale.def.name}`, rootOffset: rootOffset(chord), degree: i + 1,
     };
   });
   const colors = colorChords(scale, size).sort(
@@ -186,7 +195,10 @@ export function buildChordMap(scale: Scale, size: ChordSize = '7th'): ChordSlot[
   );
   BLACK_PCS.forEach((pc, i) => {
     const p = colors[i];
-    slots[pc] = { keyPc: pc, kind: 'color', chord: p.chord, role: p.role, reason: p.reason, rootOffset: rootOffset(p.chord) };
+    slots[pc] = {
+      keyPc: pc, kind: 'color', chord: p.chord, role: p.role, reason: p.reason,
+      rootOffset: rootOffset(p.chord), degree: p.degree, resolvesTo: p.resolvesTo,
+    };
   });
   return slots;
 }
