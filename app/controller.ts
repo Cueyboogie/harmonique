@@ -74,6 +74,10 @@ export class Controller {
   readonly midi: MidiIO;
   /** The host owns the tempo (Ableton via Max for Live): recordings keep it instead of detecting one. */
   tempoLocked = false;
+  /** Host timeline (Live): performance.now() time of the song's beat 0 while the host plays, else null. */
+  private hostZero: number | null = null;
+  /** Host beat where the loop's beat 0 sits (the bar you started recording on), so it replays where you played it. */
+  private loopOffset = 0;
   readonly synth = new Synth();
 
   private held = new Map<string, Held>();
@@ -121,7 +125,7 @@ export class Controller {
 
   setBpm(bpm: number) {
     const next = Math.max(40, Math.min(240, Math.round(bpm * 10) / 10));
-    if (this.running) {
+    if (this.running && this.hostZero === null) {
       const now = performance.now();
       const beat = this.beatAt(now);
       this.bpm = next;
@@ -130,6 +134,17 @@ export class Controller {
     if (this.rawTake) { this.rawTake = { ...this.rawTake, bpm: this.bpm }; this.derive(); }
     this.notify();
   }
+
+  /* ================= host clock (Live) ================= */
+  /**
+   * Lock to the host's song position: its beat 0 happened at `zero` (performance.now() ms).
+   * Loop bars and Euclidean steps then land on Live's grid, and recordings are measured from it.
+   */
+  setHostClock(zero: number | null) {
+    this.hostZero = zero;
+    if (zero !== null && this.running) this.transportStart = zero;
+  }
+  get hostLocked() { return this.hostZero !== null; }
 
   /* ================= live playing ================= */
   keyDown(src: string, keyMidi: number, velocity = 100) {
@@ -226,6 +241,7 @@ export class Controller {
     const events = this.recEvents.sort((a, b) => a.startMs - b.startMs);
     if (!events.length) return;
     const take = takeFromRecording(events, now - this.recT0, this.euclidOn || this.tempoLocked ? this.bpm : undefined);
+    this.loopOffset = this.hostZero !== null ? Math.round(((this.recT0 - this.hostZero) * this.bpm) / 60000) : 0;
     this.rawTake = take;
     this.loopBars = 'auto';
     this.derive();
@@ -266,6 +282,7 @@ export class Controller {
       return { notes: prev, beats: 4, keyPc: pc, label: hit.slot.chord.symbol };
     });
     this.stop();
+    this.loopOffset = 0;
     this.rawTake = takeFromChords(chords, this.bpm);
     this.loopBars = 'auto';
     this.derive();
@@ -305,8 +322,9 @@ export class Controller {
   /** 0..1 position in the loop, for the playhead. */
   loopPosition(): number {
     if (!this.playing || !this.take || !this.running) return -1;
-    const b = this.beatAt(performance.now());
-    return b < 0 ? 0 : (b % this.take.beats) / this.take.beats;
+    const L = this.take.beats;
+    const b = this.beatAt(performance.now()) - this.loopOffset;
+    return (((b % L) + L) % L) / L;
   }
   /** 0..1 position in the Euclidean cycle, for the ring's hand. */
   cyclePosition(): number {
@@ -344,8 +362,8 @@ export class Controller {
     for (const n of notes) this.midi.send(n, velocity, ch, at);
     const t = at ?? performance.now();
     if (source !== 'loop' && ch === CHORD_CH) { // the loop records chords; notes go straight to Ableton
-      if (this.rec === 'armed') { this.rec = 'recording'; this.recT0 = t; this.notify(); }
-      if (this.rec === 'recording') this.recOpen.set(id, { startMs: t - this.recT0, lengthMs: 0, notes, velocity, keyPc, label });
+      if (this.rec === 'armed') { this.rec = 'recording'; this.recT0 = this.recordAnchor(t); this.notify(); }
+      if (this.rec === 'recording') this.recOpen.set(id, { startMs: Math.max(0, t - this.recT0), lengthMs: 0, notes, velocity, keyPc, label });
     }
     this.later(t, () => { this.sounding.set(id, out); if (source === 'loop') this.showLoopChord(out); this.notify(); });
   }
@@ -364,6 +382,13 @@ export class Controller {
       this.recOpen.delete(id);
     }
     this.later(t, () => { this.sounding.delete(id); this.notify(); });
+  }
+
+  /** Where a recording's beat 0 is: your first chord, or with Live playing, the bar line nearest to it. */
+  private recordAnchor(t: number) {
+    if (this.hostZero === null) return t;
+    const barMs = (4 * 60000) / this.bpm;
+    return this.hostZero + Math.round((t - this.hostZero) / barMs) * barMs;
   }
 
   private showLoopChord(out: Out) {
@@ -397,7 +422,7 @@ export class Controller {
 
   private startTransport(at: number) {
     this.running = true;
-    this.transportStart = at;
+    this.transportStart = this.hostZero ?? at; // on Live's grid when Live is playing
     this.scheduledTo = at;
     if (this.clockOut) this.midi.raw([0xfa], at); // MIDI Start
     window.clearInterval(this.timer);
@@ -430,9 +455,10 @@ export class Controller {
 
     if (this.playing && this.take) {
       const L = this.take.beats;
-      for (let c = Math.floor(b0 / L); c <= Math.floor(b1 / L); c++) {
+      const off = this.loopOffset;
+      for (let c = Math.floor((b0 - off) / L); c <= Math.floor((b1 - off) / L); c++) {
         this.take.events.forEach((e, i) => {
-          const b = c * L + e.start;
+          const b = c * L + e.start + off;
           if (b < b0 || b >= b1 || b < 0) return;
           const id = `loop:${c}:${i}`;
           const tOn = this.timeAt(b);

@@ -110,10 +110,11 @@ export function takeFromRecording(raw: RawEvent[], durationMs: number, fixedBpm?
     bpm = t.bpm;
     bars = t.bars;
   }
-  // Scale so the loop is exactly `bars` long, keeping the feel of what was played.
-  const msPerBeat = durationMs / (bars * 4);
+  // Detected tempo: scale so the loop is exactly `bars` long, keeping the feel of what was played.
+  // Fixed tempo (Live, or Euclidean on): never stretch. The grid is the host's, so times stay exact.
+  const msPerBeat = fixedBpm ? 60000 / fixedBpm : durationMs / (bars * 4);
   const beats = bars * 4;
-  const events = raw.map((e) => ({
+  const events = raw.filter((e) => e.startMs / msPerBeat < bars * 4).map((e) => ({
     start: e.startMs / msPerBeat,
     length: Math.max(0.05, Math.min(e.lengthMs / msPerBeat, beats - e.startMs / msPerBeat)),
     notes: e.notes.slice(),

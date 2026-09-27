@@ -162,3 +162,15 @@ describe('loop length', () => {
     expect(l.events.map((e) => [e.start, e.length])).toEqual([[0, 4], [4, 4], [8, 4]]);
   });
 });
+
+describe('fixed tempo (Live owns it): no stretching', () => {
+  it('keeps every chord exactly on the host grid', () => {
+    const beat = 60000 / 118;
+    // played 4 chords, one per bar, but pressed STOP a bit early (3.8 bars)
+    const raw = [0, 4, 8, 12].map((b, i) => ({ startMs: b * beat, lengthMs: 4 * beat - 20, notes: [60 + i], velocity: 100, keyPc: 0, label: 'C' }));
+    const t = takeFromRecording(raw, 15.2 * beat, 118);
+    expect(t.bpm).toBe(118);
+    expect(t.beats).toBe(16);
+    expect(t.events.map((e) => Math.round(e.start * 1000) / 1000)).toEqual([0, 4, 8, 12]);
+  });
+});
