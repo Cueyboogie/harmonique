@@ -23,9 +23,9 @@ const PHOSPHORS = [
   { name: 'CREAM', p: '#EEE0CB', bg: '#12100C' },
 ];
 const GATES = [0.25, 0.5, 0.8, 1];
-const LOOP = { w: 640, h: 130, base: 116 };
-const EU = { w: 640, h: 84, base: 60 };
-const SCOPE = { cx: 190, cy: 130, r: 108 };
+const LOOP = { w: 640, h: 170, base: 154 };
+const EU = { w: 640, h: 100, base: 72 };
+const SCOPE = { cx: 190, cy: 100, r: 84 };
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -53,7 +53,7 @@ export function mountMonitor(c: Controller) {
   }
 
   /* ---------- geometry helpers ---------- */
-  const levelOf = (keyPc: number | undefined) => (keyPc === undefined ? LOOP.base : 104 - (keyPc / 11) * 66);
+  const levelOf = (keyPc: number | undefined) => (keyPc === undefined ? LOOP.base : 140 - (keyPc / 11) * 92);
   const scopePos = (pc: number) => {
     const a = ((pc * 30 - 90) * Math.PI) / 180;
     return { x: SCOPE.cx + SCOPE.r * Math.cos(a), y: SCOPE.cy + SCOPE.r * Math.sin(a) };
@@ -73,13 +73,12 @@ export function mountMonitor(c: Controller) {
     $('root').textContent = noteLabel(c.scale.root);
     const scaleName = up(c.scale.def.name);
     $('scale').textContent = scaleName;
-    $('scale').style.fontSize = scaleName.length > 12 ? '26px' : scaleName.length > 8 ? '32px' : '';
+    $('scale').style.fontSize = scaleName.length > 12 ? '17px' : scaleName.length > 8 ? '22px' : '';
     $('size').textContent = c.size === 'triad' ? 'TRIADS' : up(c.size);
     $('smooth').textContent = c.smooth ? 'SMOOTH' : 'OFF';
     $('spread').textContent = up(c.spread);
     $('inv').textContent = ['ROOT', '1ST', '2ND', '3RD'][c.inversion];
-    const t = c.take;
-    $('take-info').textContent = c.rec === 'recording' ? '● RECORDING' : t ? `${t.beats / 4} ${t.beats === 4 ? 'BAR' : 'BARS'} · ${up(c.takeName)}` : 'NO LOOP YET';
+
   }
 
   function renderLoop() {
@@ -88,7 +87,7 @@ export function mountMonitor(c: Controller) {
     const note = $('loop-note');
     if (c.rec === 'armed') note.textContent = 'READY · PLAY YOUR FIRST CHORD';
     else if (c.rec === 'recording') note.textContent = 'RECORDING · STOP CLOSES THE LOOP';
-    else note.textContent = t ? 'ON REPEAT' : 'PRESS REC, THEN PLAY';
+    else note.textContent = t ? `${t.beats / 4} ${t.beats === 4 ? 'BAR' : 'BARS'} · ${up(c.takeName)} · ON REPEAT` : 'PRESS REC, THEN PLAY CHORDS';
     if (!t || c.rec !== 'idle') {
       svg.innerHTML = `<path d="M0 ${LOOP.base} L${LOOP.w} ${LOOP.base}" stroke="var(--p)" stroke-width="2" stroke-opacity=".5" stroke-dasharray="${c.rec === 'idle' ? '4 6' : '0'}" fill="none"/>`;
       return;
@@ -152,6 +151,7 @@ export function mountMonitor(c: Controller) {
     play.disabled = !c.take;
     play.classList.toggle('on', c.playing);
     $('play-label').textContent = c.playing ? '■ STOP' : '▶ PLAY';
+    ($('ideas') as HTMLButtonElement).disabled = false;
     const save = $<HTMLButtonElement>('save');
     save.disabled = !c.take;
     save.hidden = window.self !== window.top; // downloads are blocked inside shared pages

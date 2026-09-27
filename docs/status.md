@@ -48,7 +48,7 @@
   - LOOP trace = your take (steps with each chord, sweep = playhead); EUCLIDEAN trace = real pattern (spike per hit, tap the ticks to edit), steppers + groove + step length + note length
   - Tempo box (type BPM, ÷2 ×2), NOW / NEXT / ODDS; SCOPE = playable chord circle with hints; IDEAS + MIDI panels; phosphor colour switch
   - "Rhythm" renamed **Euclidean** everywhere.
-  - Diego feedback applied: controls sit on top of what they control (REC/PLAY/IDEAS/SAVE above the LOOP trace; ON/OFF switch above the EUCLIDEAN trace); options are visibly interactive (KEY/SCALE labels + ringed ◂ ▸; CHORDS · VOICE LEADING · SPREAD · INVERSION as labelled boxes with ▸).
+  - Layout v3 (Diego): left side = just the two visualizers, each with its own control on top (REC/PLAY on the LOOP trace, ON/OFF switch on the EUCLIDEAN trace; Ideas/Save MIDI as small text links). All settings live in the right-hand readout box as compartments: KEY | SCALE, TEMPO, CHORDS | VOICING | SPREAD | INVERT, NOW | NEXT | ODDS; then the SCOPE.
 
 ## Next
 1. **Diego listens:** presets, Generate (Pop vs Bach, Tension, Color), hints, Smooth on/off. What sounds great, what doesn't.
