@@ -1,0 +1,155 @@
+/**
+ * Takes: what Record captures, and how its tempo is found.
+ *
+ * A take is exactly what came out of Harmonic between the first chord and Stop:
+ * every chord, when it started, how long it sounded, how hard it was hit.
+ * It is never re-sequenced afterwards.
+ *
+ * Tempo detection (when you played freely):
+ *   The loop runs from your first chord to the moment you pressed Stop, so it is a
+ *   whole number of bars. For each possible bar count, work out the tempo that implies,
+ *   snap your chord changes to that beat grid, fine-tune the tempo to fit them best
+ *   (least squares), and score how well everything lines up. Musically sensible
+ *   tempos (around 80–160 BPM) and 1/2/4/8/16-bar loops are preferred.
+ *   Double/half-time ambiguity is left to the user: ×2 and ÷2 reinterpret the take
+ *   without changing how it sounds.
+ */
+import type { NoteEvent } from './midifile';
+
+export interface TakeEvent {
+  /** Start, in beats from the top of the loop. */
+  start: number;
+  /** Length in beats. */
+  length: number;
+  notes: number[];
+  velocity: number;
+  /** Which key (0 = C … 11 = B) produced it, for display. */
+  keyPc?: number;
+  /** Chord name at the time it was played, e.g. "Fmaj7". */
+  label?: string;
+}
+
+export interface Take {
+  events: TakeEvent[];
+  /** Loop length in beats (always whole bars of 4/4). */
+  beats: number;
+  bpm: number;
+  /** How the tempo was set: found from your playing, or the tempo that was running (Euclidean on / preset). */
+  tempoSource: 'detected' | 'fixed';
+}
+
+/** An event as captured live, in milliseconds from the first chord. */
+export interface RawEvent {
+  startMs: number;
+  lengthMs: number;
+  notes: number[];
+  velocity: number;
+  keyPc?: number;
+  label?: string;
+}
+
+export interface TempoResult {
+  bpm: number;
+  bars: number;
+  /** Average distance of your changes from the grid, in beats (0 = perfectly on). */
+  error: number;
+}
+
+const isPow2 = (n: number) => (n & (n - 1)) === 0;
+
+/** Find tempo and bar count from chord start times (ms) and the loop length (ms). */
+export function detectTempo(onsetsMs: number[], durationMs: number, min = 70, max = 170): TempoResult {
+  if (durationMs <= 0) throw new Error('Loop length must be positive');
+  const onsets = [...new Set(onsetsMs.filter((t) => t > 0 && t < durationMs))].sort((a, b) => a - b);
+  let best: TempoResult & { score: number } | null = null;
+
+  for (let bars = 1; bars <= 32; bars++) {
+    const beat0 = durationMs / (4 * bars);
+    const bpm0 = 60000 / beat0;
+    if (bpm0 < min * 0.97 || bpm0 > max * 1.03) continue;
+
+    // Snap each change to the nearest half-beat, then refine the beat length by least squares.
+    const pts = onsets.map((t) => ({ t, k: Math.round((t / beat0) * 2) / 2 }));
+    pts.push({ t: durationMs, k: 4 * bars });
+    const num = pts.reduce((s, p) => s + p.k * p.t, 0);
+    const den = pts.reduce((s, p) => s + p.k * p.k, 0);
+    const beat = den > 0 ? num / den : beat0;
+    const bpm = 60000 / beat;
+
+    const errs = onsets.map((t) => {
+      const x = t / beat;
+      const onBeat = Math.abs(x - Math.round(x));
+      const onHalf = Math.abs(x - Math.round(x * 2) / 2) + 0.08; // half-beat changes are fine, slightly less likely
+      return Math.min(onBeat, onHalf);
+    });
+    const error = errs.length ? Math.sqrt(errs.reduce((s, e) => s + e * e, 0) / errs.length) : 0;
+    const score = error + 0.25 * Math.abs(Math.log2(bpm / 115)) + (isPow2(bars) ? 0 : 0.12);
+    if (!best || score < best.score) best = { bpm, bars, error, score };
+  }
+
+  if (!best) {
+    // Nothing fits the range: fall back to the closest bar count.
+    const bars = Math.max(1, Math.round((durationMs / 60000) * 115 / 4));
+    return { bpm: 60000 / (durationMs / (4 * bars)), bars, error: 1 };
+  }
+  return { bpm: Math.round(best.bpm * 10) / 10, bars: best.bars, error: best.error };
+}
+
+/**
+ * Turn a recording into a take.
+ * `fixedBpm`: the tempo that was running (e.g. Euclidean mode on); otherwise it's detected.
+ */
+export function takeFromRecording(raw: RawEvent[], durationMs: number, fixedBpm?: number): Take {
+  let bpm: number;
+  let bars: number;
+  if (fixedBpm) {
+    bpm = fixedBpm;
+    bars = Math.max(1, Math.round(durationMs / ((60000 / bpm) * 4)));
+  } else {
+    const t = detectTempo(raw.map((e) => e.startMs), durationMs);
+    bpm = t.bpm;
+    bars = t.bars;
+  }
+  // Scale so the loop is exactly `bars` long, keeping the feel of what was played.
+  const msPerBeat = durationMs / (bars * 4);
+  const beats = bars * 4;
+  const events = raw.map((e) => ({
+    start: e.startMs / msPerBeat,
+    length: Math.max(0.05, Math.min(e.lengthMs / msPerBeat, beats - e.startMs / msPerBeat)),
+    notes: e.notes.slice(),
+    velocity: e.velocity,
+    keyPc: e.keyPc,
+    label: e.label,
+  }));
+  return { events, beats, bpm: fixedBpm ? bpm : Math.round((60000 / msPerBeat) * 10) / 10, tempoSource: fixedBpm ? 'fixed' : 'detected' };
+}
+
+/**
+ * ×2 / ÷2: same sound, different reading. At ×2 the take spans twice as many beats at
+ * twice the tempo (useful when Harmonic guessed half-time).
+ */
+export function reinterpret(take: Take, factor: 2 | 0.5): Take {
+  const beats = take.beats * factor;
+  if (beats < 4 || beats % 4 !== 0) return take; // must stay whole bars
+  return {
+    ...take,
+    bpm: Math.round(take.bpm * factor * 10) / 10,
+    beats,
+    events: take.events.map((e) => ({ ...e, start: e.start * factor, length: e.length * factor })),
+  };
+}
+
+/** A take made from a list of chords, each held for a number of beats (presets, generator). */
+export function takeFromChords(chords: { notes: number[]; beats: number; keyPc?: number; label?: string }[], bpm: number): Take {
+  let t = 0;
+  const events = chords.map((c) => {
+    const e = { start: t, length: c.beats, notes: c.notes, velocity: 96, keyPc: c.keyPc, label: c.label };
+    t += c.beats;
+    return e;
+  });
+  return { events, beats: Math.max(4, Math.ceil(t / 4) * 4), bpm, tempoSource: 'fixed' };
+}
+
+export function takeToMidiEvents(take: Take): NoteEvent[] {
+  return take.events.map((e) => ({ notes: e.notes, start: e.start, length: e.length, velocity: e.velocity }));
+}

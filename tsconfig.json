@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["engine", "tests", "scripts", "explorer"]
+  "include": ["engine", "tests", "scripts", "explorer", "app"]
 }

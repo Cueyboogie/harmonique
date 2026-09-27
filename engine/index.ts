@@ -7,3 +7,5 @@ export * from './voiceleading';
 export * from './progression';
 export * from './midifile';
 export * from './bach-data';
+export * from './rhythm';
+export * from './take';

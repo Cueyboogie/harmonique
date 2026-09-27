@@ -1,0 +1,259 @@
+<title>Harmonic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --char: #565656; --rose: #C2847A; --cream: #EEE0CB; --sky: #A0C1D1; --teal: #47A8BD;
+    --line: rgba(86, 86, 86, .28);
+    --line-soft: rgba(86, 86, 86, .14);
+    --display: 'Barlow Semi Condensed', 'Arial Narrow', system-ui, sans-serif;
+    --body: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--cream); }
+  body { margin: 0; color: var(--char); font: 15px/1.45 var(--body); padding-inline: 16px; padding-block: 0 16px; min-width: 1100px; }
+  button, select, input { font: inherit; color: inherit; }
+  button { cursor: pointer; background: none; border: 0; }
+  button:disabled { cursor: not-allowed; opacity: .4; }
+  :focus-visible { outline: 3px solid var(--char); outline-offset: 3px; }
+  .lbl { font: 600 11px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; }
+  .wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+  /* top bar */
+  header { height: 64px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .brand { font: 700 19px/1 var(--display); letter-spacing: .18em; margin-right: 10px; }
+  .field { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 6px 0 14px; border: 1px solid var(--char); border-radius: 19px; }
+  .field select { border: 0; background: transparent; font-weight: 700; font-size: 14px; padding: 6px 4px; cursor: pointer; }
+  .pillbtn { white-space: nowrap; height: 38px; padding: 0 14px; border: 1px solid var(--char); border-radius: 19px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; }
+  .pillbtn[aria-pressed="true"] { background: var(--char); color: var(--cream); }
+  .spacer { flex-grow: 1; }
+  .tempo { display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 6px 0 14px; border: 1px solid var(--char); border-radius: 19px; }
+  .tempo input { width: 78px; border: 0; background: transparent; font: 500 16px/1 var(--mono); padding: 4px; }
+  .badge { font: 700 10px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; padding: 5px 7px; border-radius: 10px; background: var(--char); color: var(--cream); }
+  .mini { height: 28px; min-width: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 14px; font-size: 13px; font-weight: 600; }
+  details.pop { position: relative; }
+  details.pop > summary { list-style: none; }
+  details.pop > summary::-webkit-details-marker { display: none; }
+  .panel { position: absolute; right: 0; top: 46px; z-index: 20; width: 340px; padding: 16px; border-radius: 16px; background: var(--cream); border: 1px solid var(--char); box-shadow: 0 18px 40px -18px rgba(86,86,86,.6); display: grid; gap: 14px; }
+  .panel.left { left: 0; right: auto; }
+  .panel label { display: grid; gap: 6px; }
+  .panel select { height: 36px; border: 1px solid var(--char); border-radius: 8px; background: transparent; padding: 0 8px; }
+  .panel p, .panel ol { margin: 0; font-size: 13px; }
+  .panel ol { padding-left: 18px; display: grid; gap: 4px; }
+  .segs { display: inline-flex; border: 1px solid var(--char); border-radius: 10px; overflow: hidden; width: fit-content; }
+  .seg { padding: 8px 12px; font: 600 13px/1 var(--display); letter-spacing: .04em; border-right: 1px solid var(--char); }
+  .seg:last-child { border-right: 0; }
+  .seg[aria-pressed="true"] { background: var(--char); color: var(--cream); }
+
+  /* stage */
+  .stage { display: grid; grid-template-columns: 640px minmax(0, 1fr); gap: 18px; align-items: start; }
+  .orbit-col { display: flex; flex-direction: column; gap: 8px; }
+  .orbit { position: relative; width: 620px; height: 500px; }
+  #orbit-svg { position: absolute; inset: 0; }
+  .node { position: absolute; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0; transition: transform .08s ease, box-shadow .2s ease, opacity .2s ease; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .node-scale { background: var(--char); color: var(--cream); border: 3px solid var(--q); }
+  .node-color { background: transparent; color: var(--char); border: 2px dashed var(--q); }
+  .node.is-hint.node-scale { border-width: 5px; }
+  .node.is-hint.node-color { border-style: solid; border-color: var(--char); }
+  .node.is-cur { opacity: .35; }
+  .node.is-lit { transform: scale(1.08); opacity: 1; background: var(--q); color: var(--char); }
+  .node-sym { font: 700 15px/1 var(--body); }
+  .node-color .node-sym { font-size: 13px; }
+  .node-key { font: 500 10px/1 var(--mono); opacity: .85; }
+  .node-pct { position: absolute; bottom: -11px; left: 50%; transform: translateX(-50%); padding: 4px 7px; border-radius: 10px; font: 600 11px/1 var(--mono); background: var(--char); color: var(--cream); white-space: nowrap; }
+  .core { position: absolute; left: 244px; top: 180px; width: 132px; height: 132px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: var(--char); color: var(--cream); box-shadow: 0 0 0 6px var(--q, var(--sky)), 0 0 50px var(--q, var(--sky)); pointer-events: none; }
+  .core.is-empty { background: transparent; color: var(--char); box-shadow: 0 0 0 1.5px var(--line); }
+  .core-now { font: 600 10px/1 var(--display); letter-spacing: .18em; text-transform: uppercase; }
+  .core-sym { font: 700 26px/1 var(--body); }
+  .core-sub { font: 600 12px/1 var(--display); letter-spacing: .04em; text-align: center; padding: 0 10px; }
+  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12px; max-width: 620px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 13px; height: 13px; border-radius: 50%; border: 3px solid; }
+
+  /* keyboard strip */
+  .strip-wrap { display: grid; gap: 6px; }
+  #strip { position: relative; height: 112px; width: 620px; }
+  .k { position: absolute; top: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; padding-bottom: 8px; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .k-white { width: calc(100% / 7 - 3px); height: 112px; border-radius: 0 0 10px 10px; border: 1.5px solid var(--char); background: transparent; z-index: 1; }
+  .k-black { width: 60px; height: 64px; border-radius: 0 0 8px 8px; background: var(--char); color: var(--cream); z-index: 2; justify-content: flex-end; }
+  .k-sym { font: 700 13px/1 var(--body); }
+  .k-black .k-sym { font-size: 11px; }
+  .k-name { font: 500 10px/1 var(--mono); opacity: .8; }
+  .k.is-hint { box-shadow: inset 0 -5px 0 var(--q); }
+  .k-black.is-hint { box-shadow: 0 0 0 3px var(--q); }
+  .k.is-cur { background: var(--q); color: var(--char); }
+  .k.is-lit { background: var(--q); color: var(--char); }
+  .k-hint { position: absolute; top: 6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; display: grid; place-items: center; font: 700 11px/1 var(--mono); background: var(--char); color: var(--cream); }
+  .k-black .k-hint { background: var(--cream); color: var(--char); top: 5px; }
+
+  /* rhythm */
+  .rhythm { border: 1.5px solid var(--char); border-radius: 22px; padding: 18px; display: grid; gap: 14px; }
+  .rhythm-head { display: flex; align-items: center; gap: 12px; }
+  .rhythm-head h2 { margin: 0; font: 700 18px/1 var(--body); }
+  .switch { position: relative; width: 58px; height: 32px; border-radius: 16px; border: 1.5px solid var(--char); flex-shrink: 0; }
+  .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 23px; height: 23px; border-radius: 50%; background: var(--char); transition: transform .15s ease; }
+  .switch[aria-checked="true"] { background: var(--rose); }
+  .switch[aria-checked="true"]::after { transform: translateX(26px); }
+  #eu-help { margin: 0; font-size: 13px; }
+  .ring-row { display: flex; gap: 18px; align-items: center; }
+  .ring { position: relative; width: 300px; height: 300px; flex-shrink: 0; }
+  #ring-svg { position: absolute; inset: 0; }
+  .dot { position: absolute; width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--char); background: var(--cream); }
+  .dot.is-hit { background: var(--rose); }
+  .rhythm.is-off .ring, .rhythm.is-off .controls { opacity: .45; }
+  .controls { display: grid; gap: 14px; flex-grow: 1; min-width: 0; }
+  .stepper { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .stepper-name { display: grid; gap: 3px; }
+  .stepper-name small { font-size: 11px; }
+  .stepper-ctl { display: flex; align-items: center; gap: 6px; }
+  .stepper-ctl button { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--char); font-size: 18px; font-weight: 700; line-height: 1; }
+  .stepper-ctl output { min-width: 28px; text-align: center; font: 600 17px/1 var(--mono); }
+  .gate input { width: 100%; accent-color: var(--char); }
+  .gate-ends { display: flex; justify-content: space-between; font-size: 11px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { height: 32px; padding: 0 12px; border-radius: 16px; border: 1.5px solid var(--char); font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; }
+  .chip[aria-pressed="true"], .chip-static { background: var(--char); color: var(--cream); }
+  #cycle-info { font-size: 12px; }
+
+  /* loop */
+  .loop { height: 104px; display: flex; align-items: center; gap: 16px; padding: 0 18px; border: 1.5px solid var(--char); border-radius: 22px; }
+  .rec { width: 58px; height: 58px; flex-shrink: 0; border-radius: 50%; border: 3px solid var(--rose); display: grid; place-items: center; }
+  .rec::after { content: ''; width: 22px; height: 22px; border-radius: 50%; background: var(--rose); }
+  .rec[data-state="armed"] { animation: pulse 1s infinite; }
+  .rec[data-state="recording"] { background: var(--rose); border-color: var(--char); }
+  .rec[data-state="recording"]::after { width: 18px; height: 18px; border-radius: 3px; background: var(--char); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+  .loop-text { width: 190px; display: grid; gap: 4px; flex-shrink: 0; }
+  #loop-title { font: 700 16px/1.1 var(--body); }
+  #loop-sub { font-size: 12px; }
+  #loop-lane { position: relative; flex-grow: 1; min-width: 0; height: 62px; }
+  .loop-empty { height: 100%; display: grid; place-items: center; border: 1.5px dashed var(--line); border-radius: 12px; font-size: 14px; }
+  .bar { position: absolute; top: -2px; bottom: -2px; border-left: 1px solid var(--line); }
+  .bar span { position: absolute; top: -14px; left: 3px; font: 500 10px/1 var(--mono); }
+  .ev { position: absolute; top: 6px; bottom: 6px; border-radius: 10px; background: var(--char); color: var(--cream); box-shadow: inset 0 -5px 0 var(--q); padding: 8px 9px; overflow: hidden; }
+  .ev span { font: 700 13px/1 var(--body); white-space: nowrap; }
+  .playhead { position: absolute; top: -6px; bottom: -6px; width: 2px; background: var(--rose); pointer-events: none; }
+  .loop-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .play { width: 52px; height: 52px; border-radius: 50%; background: var(--char); display: grid; place-items: center; }
+  .play::after { content: ''; width: 0; height: 0; border-left: 15px solid var(--cream); border-top: 9px solid transparent; border-bottom: 9px solid transparent; margin-left: 4px; }
+  .play[data-state="playing"]::after { width: 14px; height: 14px; border: 0; background: var(--cream); margin: 0; border-radius: 2px; }
+  .ghost { height: 40px; padding: 0 14px; border-radius: 20px; border: 1.5px solid var(--char); font-weight: 600; font-size: 14px; }
+  .ideas-panel { bottom: 56px; top: auto; width: 420px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">HARMONIC</div>
+    <label class="field"><span class="lbl">Key</span><select id="sel-root" aria-label="Key"></select></label>
+    <label class="field"><span class="lbl">Scale</span><select id="sel-scale" aria-label="Scale"></select></label>
+    <label class="field"><span class="lbl">Chords</span><select id="sel-size" aria-label="Chord size"></select></label>
+    <details class="pop">
+      <summary class="pillbtn">Voicing</summary>
+      <div class="panel left">
+        <div style="display:grid;gap:6px"><span class="lbl">Inversion</span><div id="seg-inv" class="segs"></div></div>
+        <div style="display:grid;gap:6px"><span class="lbl">Spread</span><div id="seg-spread" class="segs"></div></div>
+        <div style="display:grid;gap:6px"><span class="lbl">Voice leading</span><div id="seg-smooth" class="segs"></div><p>Smooth: each chord moves as little as possible from the last.</p></div>
+        <div style="display:grid;gap:6px"><span class="lbl">Hints learned from</span><div id="seg-style" class="segs"></div><p>Pop: famous modern progressions. Bach: 368 Bach chorales.</p></div>
+        <p id="scale-mood"></p>
+      </div>
+    </details>
+    <div class="spacer"></div>
+    <div class="tempo">
+      <span class="lbl">BPM</span>
+      <input id="bpm" type="number" min="40" max="240" step="0.1" aria-label="Tempo in BPM">
+      <span id="bpm-badge" class="badge" hidden title="Found from your playing">Detected</span>
+      <button id="bpm-half" class="mini" type="button" title="Half-time reading" hidden>÷2</button>
+      <button id="bpm-x2" class="mini" type="button" title="Double-time reading" hidden>×2</button>
+    </div>
+    <button id="clock" class="pillbtn" type="button" aria-pressed="true" title="Send MIDI Clock so Ableton follows Harmonic's tempo">Sync: on</button>
+    <details class="pop">
+      <summary class="pillbtn" id="midi-status">MIDI</summary>
+      <div class="panel">
+        <p id="midi-note">MIDI works in the local app on your Mac (double-click Start Harmonic). Allow MIDI when Chrome asks.</p>
+        <div id="midi-fields" hidden style="display:grid;gap:12px">
+          <label><span class="lbl">Input · your keyboard</span><select id="midi-in"></select></label>
+          <label><span class="lbl">Output · to Ableton</span><select id="midi-out"></select></label>
+          <button id="panic" class="ghost" type="button">All notes off</button>
+        </div>
+        <button id="sound" class="ghost" type="button" aria-pressed="true">Browser sound on</button>
+        <ol>
+          <li>Audio MIDI Setup → Window → Show MIDI Studio → IAC Driver → Device is online.</li>
+          <li>Ableton → Settings → Link, Tempo &amp; MIDI: IAC Driver input <b>Track</b> on. For tempo, IAC input <b>Sync</b> on, then set Ableton's tempo to Ext.</li>
+          <li>Instrument track: MIDI From = IAC Driver (Bus 1), Monitor = In.</li>
+        </ol>
+      </div>
+    </details>
+  </header>
+
+  <main class="stage">
+    <div class="orbit-col">
+      <div class="orbit">
+        <svg id="orbit-svg" width="620" height="500" viewBox="0 0 620 500" aria-hidden="true"></svg>
+        <div id="orbit-nodes"></div>
+        <div id="core" class="core"></div>
+      </div>
+      <div class="legend">
+        <span><i style="border-color: var(--rose)"></i>major</span>
+        <span><i style="border-color: var(--teal)"></i>minor</span>
+        <span><i style="border-color: var(--sky)"></i>diminished</span>
+        <span><i style="border-color: var(--char); border-style: dashed; border-width: 2px"></i>black-key color chord</span>
+        <span>· the glow and numbers show good next chords</span>
+      </div>
+      <div class="strip-wrap">
+        <span class="lbl">Your keyboard · same on every octave</span>
+        <div id="strip"></div>
+      </div>
+    </div>
+
+    <section id="rhythm" class="rhythm is-off" aria-labelledby="rhythm-title">
+      <div class="rhythm-head">
+        <h2 id="rhythm-title">Euclidean rhythm</h2>
+        <span class="spacer"></span>
+        <span id="eu-state" class="lbl">Off</span>
+        <button id="eu-switch" class="switch" type="button" role="switch" aria-checked="false" aria-label="Euclidean rhythm"></button>
+      </div>
+      <p id="eu-help"></p>
+      <div class="ring-row">
+        <div class="ring">
+          <svg id="ring-svg" width="300" height="300" viewBox="0 0 300 300" aria-hidden="true"></svg>
+          <div id="ring-dots"></div>
+        </div>
+        <div class="controls">
+          <div class="stepper"><span class="stepper-name"><b>Steps</b><small>slots in the pattern</small></span><span class="stepper-ctl"><button type="button" data-edit="steps:-1" aria-label="Fewer steps">−</button><output id="v-steps"></output><button type="button" data-edit="steps:1" aria-label="More steps">+</button></span></div>
+          <div class="stepper"><span class="stepper-name"><b>Hits</b><small>how many play</small></span><span class="stepper-ctl"><button type="button" data-edit="hits:-1" aria-label="Fewer hits">−</button><output id="v-hits"></output><button type="button" data-edit="hits:1" aria-label="More hits">+</button></span></div>
+          <div class="stepper"><span class="stepper-name"><b>Rotate</b><small>shift the start</small></span><span class="stepper-ctl"><button type="button" data-edit="rotate:-1" aria-label="Rotate back">−</button><output id="v-rot"></output><button type="button" data-edit="rotate:1" aria-label="Rotate forward">+</button></span></div>
+          <div style="display:grid;gap:6px"><span class="lbl">Step length</span><div id="seg-rate" class="segs"></div></div>
+          <label class="gate" style="display:grid;gap:6px"><span class="lbl">Note length</span><input id="gate" type="range" min="0.1" max="1" step="0.05"><span class="gate-ends"><span>short stab</span><span>hold to next hit</span></span></label>
+        </div>
+      </div>
+      <div style="display:grid;gap:8px"><span class="lbl">Grooves · or tap the dots to make your own</span><div id="grooves" class="chips"></div><span id="cycle-info"></span></div>
+    </section>
+  </main>
+
+  <footer class="loop">
+    <button id="rec" class="rec" type="button" data-state="idle" aria-label="Record"></button>
+    <div class="loop-text"><span id="loop-title"></span><span id="loop-sub"></span></div>
+    <div id="loop-lane"></div>
+    <div class="loop-actions">
+      <details class="pop" id="ideas">
+        <summary class="ghost" style="display:inline-flex;align-items:center">Ideas</summary>
+        <div class="panel ideas-panel">
+          <span class="lbl">Famous progressions</span>
+          <div id="presets" class="chips"></div>
+          <button id="generate" class="ghost" type="button">Generate one for me</button>
+        </div>
+      </details>
+      <button id="play" class="play" type="button" aria-label="Play loop" data-state="stopped"></button>
+      <button id="save" class="ghost" type="button">Save MIDI</button>
+      <button id="clear" class="ghost" type="button">Clear</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+__APP__
+</script>

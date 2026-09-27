@@ -87,20 +87,30 @@ export class MidiBridge {
     else if (type === 0xb0 || type === 0xe0 || type === 0xd0 || type === 0xa0) this.out?.send(d); // CC, bend, aftertouch
   }
 
-  /** Send a note-on unless it's already sounding (then just count it). */
-  send(note: number, velocity: number, ch = 0) {
+  /**
+   * Send a note-on unless it's already sounding (then just count it).
+   * `at`: optional performance.now() time for sample-tight scheduling.
+   */
+  send(note: number, velocity: number, ch = 0, at?: number) {
     const k = ch * 128 + note;
     const n = this.sounding.get(k) ?? 0;
     this.sounding.set(k, n + 1);
-    if (n === 0) this.out?.send([0x90 | ch, note, velocity]);
+    if (n === 0) this.raw([0x90 | ch, note, velocity], at);
   }
   /** Send a note-off only when the last chord using this note lets go. */
-  release(note: number, ch = 0) {
+  release(note: number, ch = 0, at?: number) {
     const k = ch * 128 + note;
     const n = this.sounding.get(k) ?? 0;
-    if (n <= 1) { this.sounding.delete(k); this.out?.send([0x80 | ch, note, 0]); }
+    if (n <= 1) { this.sounding.delete(k); this.raw([0x80 | ch, note, 0], at); }
     else this.sounding.set(k, n - 1);
   }
+  /** Any message (MIDI Clock 0xF8, Start 0xFA, Stop 0xFC …), optionally scheduled. */
+  raw(data: number[], at?: number) {
+    if (!this.out) return;
+    if (at === undefined) this.out.send(data);
+    else this.out.send(data, at);
+  }
+  get hasOutput() { return !!this.out; }
 
   panic() {
     for (const k of this.sounding.keys()) this.out?.send([0x80 | Math.floor(k / 128), k % 128, 0]);

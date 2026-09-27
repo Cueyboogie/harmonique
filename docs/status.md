@@ -24,6 +24,23 @@
 - Every key plays a chord, black keys included
 - Default chord size: 7th (switchable)
 - UI direction for later: basic but attractive, Ableton-like clarity with some sex appeal. Redesign in its own session.
+- Tempo to Ableton (prototype): **MIDI Clock** over IAC. Ableton set to follow external sync. (VST later: the DAW owns tempo, so show "set project to X BPM" / fit to project.)
+- Recording: **Record button turns into Stop**; Stop closes the loop. Timing kept as played; tempo detected from the take (×2 ÷2 to fix).
+- Order: 1) timeline with variable chord lengths + timing-aware recording + tempo detection + MIDI Clock, 2) Euclidean rhythm lanes, 3) integrate into the chosen UI.
+- **UI: H (Orbit on cream) chosen for now.** Add a one-octave keyboard strip that mirrors the orbit's hints on real keys.
+- **Loop:** Record button required (Record → Stop). Captures chords + timing. No chord-length editing in Harmonic; edit the exported MIDI in Ableton.
+- **Euclidean = a live performance mode, off by default** (revised with Diego). Turn it on, hold chords, and they play in the pattern at the current tempo. It never re-rhythms a finished take. **Record always captures exactly what comes out**: your chords + timing, including the Euclidean hits if it was on while recording.
+- **Routing (plugin version, like Cthulhu):** Harmonic on MIDI track 1 → instrument track 2 set to MIDI From: Track 1 / Harmonic; record there or drag the MIDI out. Optional bass/arp lanes would use separate MIDI channels so other tracks can pick them up.
+- **Palette (Diego):** charcoal #565656 · dusty rose #C2847A · cream #EEE0CB · sky #A0C1D1 · teal #47A8BD
+- UI direction: Diego likes **Orbit** (novel) but it must be easy to grasp and accessible. Iterations D (guided, light) and E (studio, 1-2-3 steps, charcoal) use the palette; chords grouped by feel: Home (teal) / Away (sky) / Tension (rose)
+- UI directions under review (design canvas): A Rack (device chain), B Arrange (timeline first, light theme), C Orbit (chord orbit + Euclidean rings): https://claude.ai/artifact/9cC2UwKs2EsJiGbzFEdsNe
+
+## Built (session 3)
+- **App in the H layout** (`app/`): Orbit on cream + keyboard strip with hints, Record/Stop with timing kept, tempo detection (tested: 118 BPM from real key timing), ×2/÷2, MIDI Clock + Start/Stop so Ableton follows, loop playback, live Euclidean mode (chords only) with Steps/Hits/Rotate/Step length/Note length + grooves + tap-to-edit dots, Ideas (famous + generate), Save MIDI.
+- Architecture: `app/controller.ts` = all behaviour (no UI); `app/view.ts` = the H layout. A new look = a new view file.
+- Shared page: https://claude.ai/artifact/M5U3XcqW5RDWPNyzKYyuHe · Mac: http://localhost:5173 (explorer at /explorer)
+- 349 tests.
+- Next look being explored: backlit CRT / patient-monitor style, two colours (Diego's reference).
 
 ## Next
 1. **Diego listens:** presets, Generate (Pop vs Bach, Tension, Color), hints, Smooth on/off. What sounds great, what doesn't.
