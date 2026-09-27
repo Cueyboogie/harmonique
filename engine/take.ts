@@ -153,3 +153,53 @@ export function takeFromChords(chords: { notes: number[]; beats: number; keyPc?:
 export function takeToMidiEvents(take: Take): NoteEvent[] {
   return take.events.map((e) => ({ notes: e.notes, start: e.start, length: e.length, velocity: e.velocity }));
 }
+
+/* ---------------- quantize & loop length ---------------- */
+
+export type Quantize = 'off' | '1/16' | '1/8' | '1/4';
+export const QUANTIZES: readonly Quantize[] = ['1/16', '1/8', '1/4', 'off'];
+export const QUANTIZE_BEATS: Record<Exclude<Quantize, 'off'>, number> = { '1/16': 0.25, '1/8': 0.5, '1/4': 1 };
+
+/**
+ * Snap every chord's start and end to the grid (e.g. 1/16 = a quarter of a beat), so a
+ * slightly early or late change still lands where you meant it. Chords never overlap the
+ * next one afterwards, and every chord keeps at least one grid step. Non-destructive:
+ * keep the original take and quantize a copy.
+ */
+export function quantizeTake(take: Take, q: Quantize): Take {
+  if (q === 'off') return take;
+  const g = QUANTIZE_BEATS[q];
+  const snap = (b: number) => Math.round(b / g) * g;
+  const events = take.events
+    .map((e) => {
+      const start = Math.min(snap(e.start), take.beats - g);
+      const end = Math.max(start + g, Math.min(take.beats, snap(e.start + e.length)));
+      return { ...e, start, length: end - start };
+    })
+    .sort((a, b) => a.start - b.start);
+  for (let i = 0; i < events.length - 1; i++) {
+    const next = events[i + 1];
+    if (next.start > events[i].start && events[i].start + events[i].length > next.start) {
+      events[i] = { ...events[i], length: next.start - events[i].start };
+    }
+  }
+  return { ...take, events };
+}
+
+/**
+ * Set the loop to a number of bars. Longer: the take repeats to fill it.
+ * Shorter: the loop is cut, chords past the end are dropped.
+ */
+export function setLoopBars(take: Take, bars: number): Take {
+  const beats = Math.max(1, Math.round(bars)) * 4;
+  if (beats === take.beats) return take;
+  const events: TakeEvent[] = [];
+  for (let offset = 0; offset < beats; offset += take.beats) {
+    for (const e of take.events) {
+      const start = e.start + offset;
+      if (start >= beats) continue;
+      events.push({ ...e, start, length: Math.min(e.length, beats - start) });
+    }
+  }
+  return { ...take, beats, events };
+}

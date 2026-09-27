@@ -18,7 +18,7 @@
   body { display: grid; place-items: center; font-family: var(--cond); color: var(--p); }
   button, select, input { font: inherit; color: inherit; background: none; border: 0; padding: 0; }
   button { cursor: pointer; }
-  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--p); outline-offset: 3px; border-radius: 4px; }
+  select:focus-visible, input:focus-visible { outline: 2px solid var(--p); outline-offset: 3px; }
   .glow { text-shadow: var(--glow); }
 
   #fit { width: 1200px; height: 760px; transform-origin: center center; flex-shrink: 0; }
@@ -28,13 +28,26 @@
   .vignette { position: absolute; inset: 0; pointer-events: none; z-index: 5; background: radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,.62) 100%); }
   .content { position: relative; z-index: 2; height: 100%; display: flex; flex-direction: column; padding: 22px 44px 24px; animation: flicker 7s infinite; }
   @keyframes flicker { 0%, 100% { opacity: 1; } 93% { opacity: .97; } 95% { opacity: .9; } }
-  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
 
+  /* ---- one control language: terminal text. Dashed underline = you can press it.
+          Hover / keyboard focus / on = inverse video (the phosphor fills in). ---- */
+  .t { white-space: nowrap; padding: 4px 5px 3px; font: 500 12px/1 var(--mono); letter-spacing: .08em; text-shadow: var(--glow); text-decoration: underline dashed color-mix(in srgb, var(--p) 70%, transparent); text-decoration-thickness: 1px; text-underline-offset: 4px; }
+  .t:hover, .t:focus-visible, .t.on, .t[aria-checked="true"] { background: var(--p); color: var(--bg); text-shadow: none; text-decoration-color: transparent; box-shadow: 0 0 12px color-mix(in srgb, var(--p) 55%, transparent); outline: 0; }
+  .t:disabled { opacity: .35; cursor: not-allowed; background: none; color: var(--p); text-shadow: var(--glow); box-shadow: none; }
+  .t.big { font: 500 15px/1 var(--cond); letter-spacing: .14em; padding: 6px 8px 5px; }
+  .t.arr { text-decoration: none; padding: 4px 6px; opacity: .8; }
+  .t.arr:hover, .t.arr:focus-visible { opacity: 1; }
+  .t.blink { animation: blink 1s infinite; }
+  .seg { display: inline-flex; align-items: center; font: 500 15px/1 var(--cond); text-shadow: var(--glow); }
+  .seg .t { text-decoration: none; }
+  .seg .bracket { opacity: .6; padding: 0 2px; }
+
   /* status line */
-  .status { display: flex; justify-content: space-between; align-items: center; font: 500 12px/1 var(--mono); letter-spacing: .08em; }
-  .status button { opacity: .8; text-shadow: var(--glow); padding: 3px 0; }
-  .status button:hover { opacity: 1; }
+  .status { display: flex; justify-content: space-between; align-items: center; }
+  .status .t { opacity: .85; }
+  .status .t:hover { opacity: 1; }
 
   /* wordmark */
   .mark { position: relative; height: 96px; display: grid; place-items: center; }
@@ -43,115 +56,64 @@
 
   .main { flex-grow: 1; display: flex; gap: 34px; min-height: 0; margin-top: 6px; }
   .left { width: 640px; flex-shrink: 0; display: flex; flex-direction: column; }
-  .right { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
-
-  .keyline { display: flex; align-items: center; gap: 6px; height: 50px; }
-  .big { font: 300 42px/1 var(--cond); letter-spacing: .04em; text-shadow: var(--glow); }
-  .arrow { width: 24px; height: 30px; font-size: 13px; opacity: .55; text-shadow: var(--glow); }
-  .arrow:hover { opacity: 1; }
-  .dot-sep { font: 300 38px/1 var(--cond); opacity: .8; text-shadow: var(--glow); margin: 0 4px; }
-  .dim { opacity: .65; }
-  .mid { font: 400 16px/1 var(--cond); letter-spacing: .08em; text-shadow: var(--glow); }
-  .subline { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-  .subline button { font: 400 16px/1 var(--cond); letter-spacing: .08em; text-shadow: var(--glow); padding: 4px 0; border-bottom: 1px dashed transparent; }
-  .subline button:hover { border-bottom-color: var(--p); }
-  .sep { opacity: .5; }
-
-  .trace { position: relative; margin-top: 30px; }
-  .trace-label { position: absolute; left: 0; top: -20px; display: flex; gap: 10px; align-items: center; font: 500 12px/1 var(--cond); letter-spacing: .16em; opacity: .85; text-shadow: var(--glow); }
-  .trace-label button { letter-spacing: .12em; }
-  .trace svg { display: block; overflow: visible; filter: var(--svg-glow); }
-  .sweep { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--p); box-shadow: 0 0 12px 3px var(--p); opacity: 0; pointer-events: none; }
-  .eu-ctl { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font: 500 12px/1 var(--mono); letter-spacing: .06em; }
-  .eu-ctl span { display: inline-flex; align-items: center; gap: 4px; text-shadow: var(--glow); }
-  .eu-ctl .arrow { width: 18px; height: 22px; font-size: 11px; }
-  .eu-ctl b { font-weight: 500; min-width: 18px; text-align: center; }
-  .eu-ctl button.val { border-bottom: 1px dashed var(--p); padding-bottom: 1px; }
-  .eu-ctl.eu-dim { opacity: .4; }
-
-  .buttons { display: flex; gap: 12px; align-items: center; margin-top: auto; }
-  .btn { white-space: nowrap; height: 40px; padding: 0 14px; display: inline-flex; align-items: center; gap: 9px; border: 1.5px solid var(--p); border-radius: 20px; font: 500 15px/1 var(--cond); letter-spacing: .12em; text-shadow: var(--glow); box-shadow: 0 0 10px color-mix(in srgb, var(--p) 35%, transparent); }
-  .btn:disabled { opacity: .35; cursor: not-allowed; }
-  .btn.on { background: var(--p); color: var(--bg); text-shadow: none; box-shadow: 0 0 16px var(--p); }
-  .btn .led { width: 11px; height: 11px; border-radius: 50%; background: var(--p); box-shadow: 0 0 10px var(--p); }
-  .btn.on .led { background: var(--bg); box-shadow: none; }
-  #rec[data-state="armed"], #rec[data-state="recording"] { animation: blink 1s infinite; }
-  #rec[data-state="recording"] .led { border-radius: 2px; }
-
-
-  /* key / scale / options: visibly interactive */
-  .keyline { height: auto; align-items: flex-end; gap: 22px; }
-  .kgroup { display: flex; flex-direction: column; gap: 4px; }
-  .kctl { display: flex; align-items: center; gap: 6px; }
-  .arrow.ring { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--p); opacity: .9; box-shadow: 0 0 8px color-mix(in srgb, var(--p) 35%, transparent); }
-  .arrow.ring:hover { background: var(--p); color: var(--bg); text-shadow: none; }
-  .opts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-  .opt { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 6px 26px 6px 10px; position: relative; border: 1.5px solid color-mix(in srgb, var(--p) 70%, transparent); border-radius: 8px; text-shadow: var(--glow); }
-  .opt:hover { border-color: var(--p); box-shadow: 0 0 12px color-mix(in srgb, var(--p) 40%, transparent); }
-  .opt-lbl { font: 500 9px/1 var(--mono); letter-spacing: .12em; opacity: .75; }
-  .opt-val { font: 500 15px/1 var(--cond); letter-spacing: .08em; }
-  .opt-ic { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); font-size: 11px; }
+  .right { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 
   /* sections: the control sits on top of what it controls */
-  .sec { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
-  .sec-head { display: flex; align-items: center; gap: 10px; min-height: 32px; }
+  .sec { display: flex; flex-direction: column; gap: 6px; }
+  .sec + .sec { margin-top: 18px; }
+  .sec-head { display: flex; align-items: center; gap: 12px; min-height: 30px; }
   .sec-title { font: 500 14px/1 var(--cond); letter-spacing: .18em; text-shadow: var(--glow); }
-  .note { font: 400 12px/1 var(--mono); letter-spacing: .06em; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .btn.sm { height: 32px; padding: 0 12px; font-size: 13px; }
-  .btn.ghost { border-color: color-mix(in srgb, var(--p) 60%, transparent); box-shadow: none; }
-  .switch { position: relative; height: 32px; min-width: 96px; padding: 0 40px 0 14px; display: inline-flex; align-items: center; border: 1.5px solid var(--p); border-radius: 16px; font: 500 13px/1 var(--cond); letter-spacing: .16em; text-shadow: var(--glow); }
-  .switch .knob { position: absolute; right: 5px; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; border: 1.5px solid var(--p); transition: background .15s ease; }
-  .switch[aria-checked="true"] { background: var(--p); color: var(--bg); text-shadow: none; box-shadow: 0 0 16px var(--p); }
-  .switch[aria-checked="true"] .knob { background: var(--bg); border-color: var(--bg); }
-  .trace { margin-top: 2px; }
-  .eu-ctl { margin-top: 10px; gap: 8px; }
-  .ctl { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--p) 55%, transparent); border-radius: 14px; font: 500 11px/1 var(--mono); letter-spacing: .06em; text-shadow: var(--glow); }
-  button.ctl:hover, .ctl:hover { border-color: var(--p); }
+  .note { font: 400 12px/1 var(--mono); letter-spacing: .06em; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; text-shadow: var(--glow); }
+  .trace { position: relative; }
+  .trace svg { display: block; overflow: visible; filter: var(--svg-glow); }
+  .sweep { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--p); box-shadow: 0 0 12px 3px var(--p); opacity: 0; pointer-events: none; }
 
+  /* settings strip under a trace */
+  .settings { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font: 500 12px/1 var(--mono); letter-spacing: .08em; }
+  .settings .grp { display: inline-flex; align-items: center; gap: 2px; text-shadow: var(--glow); }
+  .settings .k { opacity: .7; margin-right: 4px; }
+  .settings b { font-weight: 500; min-width: 18px; text-align: center; }
+  .settings.dim { opacity: .4; }
 
   /* readout: one box, compartments for every setting */
   .readout { border: 1.5px solid var(--p); box-shadow: 0 0 12px color-mix(in srgb, var(--p) 30%, transparent), inset 0 0 14px color-mix(in srgb, var(--p) 14%, transparent); }
   .r-row { display: grid; grid-template-columns: minmax(0, 1fr); border-bottom: 1.5px solid var(--p); }
   .r-row:last-child { border-bottom: 0; }
-  .r-row.r2 { grid-template-columns: .8fr 1.2fr; }
+  .r-row.r2 { grid-template-columns: .75fr 1.25fr; }
   .r-row.r3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, .75fr); }
   .r-row.r4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .r-cell { position: relative; display: flex; flex-direction: column; gap: 5px; padding: 7px 10px 8px; min-width: 0; text-align: left; }
+  .r-cell { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 9px; min-width: 0; text-align: left; }
   .r-cell + .r-cell { border-left: 1.5px solid var(--p); }
-  .r-val { font: 300 30px/1 var(--cond); letter-spacing: .04em; text-shadow: var(--glow); text-align: center; flex-grow: 1; white-space: nowrap; }
-  .stepper-big { display: flex; align-items: center; gap: 6px; }
-  .r-cell.opt { border-radius: 0; border-top: 0; border-right: 0; border-bottom: 0; padding-right: 18px; }
-  .r-cell.opt:hover, .r-cell.opt:focus-visible { background: color-mix(in srgb, var(--p) 14%, transparent); box-shadow: none; }
-  .r-cell.opt .opt-ic { right: 8px; top: auto; bottom: 12px; transform: none; }
-  .r-cell.opt .opt-val { font-size: 14px; white-space: nowrap; }
-  .txt { white-space: nowrap; font: 500 12px/1 var(--mono); letter-spacing: .08em; text-shadow: var(--glow); opacity: .85; padding: 6px 2px; border-bottom: 1px dashed color-mix(in srgb, var(--p) 60%, transparent); }
-  .txt:hover { opacity: 1; border-bottom-color: var(--p); }
-  .txt:disabled { opacity: .35; }
-  .left .sec:first-child { margin-top: 4px; }
-
-  /* right */
-  .box { border: 1.5px solid var(--p); padding: 12px 16px 0; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 0 12px color-mix(in srgb, var(--p) 30%, transparent), inset 0 0 12px color-mix(in srgb, var(--p) 16%, transparent); }
   .lbl { font: 500 11px/1 var(--cond); letter-spacing: .16em; opacity: .85; text-shadow: var(--glow); }
-  .row { display: flex; justify-content: space-between; align-items: center; }
-  .bpm { width: 150px; font: 300 64px/1 var(--cond); letter-spacing: -.01em; text-shadow: var(--glow); -moz-appearance: textfield; }
+  .r-val { font: 300 36px/1 var(--cond); letter-spacing: .04em; text-shadow: var(--glow); text-align: center; flex-grow: 1; white-space: nowrap; }
+  .stepper-big { display: flex; align-items: center; gap: 2px; }
+  .stepper-big .t.arr { font-size: 14px; padding: 8px 7px; }
+
+  .tempo-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; }
+  .bpm { width: 52px; padding: 2px 4px 1px; font: 500 22px/1 var(--mono); text-shadow: var(--glow); text-align: right; border-bottom: 1px dashed color-mix(in srgb, var(--p) 70%, transparent); -moz-appearance: textfield; }
+  .bpm:hover { border-bottom-color: var(--p); }
   .bpm::-webkit-outer-spin-button, .bpm::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .mini { height: 26px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--p) 55%, transparent); border-radius: 13px; font: 500 12px/1 var(--mono); text-shadow: var(--glow); }
-  .cells { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, .75fr); border-top: 1.5px solid var(--p); margin-top: 6px; }
-  .cell { display: flex; flex-direction: column; gap: 6px; padding: 10px 0 12px; min-width: 0; }
-  .cell.mid-cell { padding-left: 12px; padding-right: 12px; border-left: 1.5px solid var(--p); border-right: 1.5px solid var(--p); margin: 0 12px; }
+
+  button.r-cell:hover, button.r-cell:focus-visible { background: var(--p); color: var(--bg); outline: 0; }
+  button.r-cell:hover *, button.r-cell:focus-visible * { text-shadow: none; }
+  .opt-val { font: 500 14px/1 var(--cond); letter-spacing: .08em; white-space: nowrap; text-shadow: var(--glow); text-decoration: underline dashed color-mix(in srgb, var(--p) 70%, transparent); text-underline-offset: 4px; }
+  button.r-cell:hover .opt-val { text-decoration-color: transparent; }
   .cell-val { font: 400 20px/1 var(--cond); text-shadow: var(--glow); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cell-sub { font: 400 11px/1 var(--mono); opacity: .7; }
+  .cell-sub { font: 400 11px/1 var(--mono); opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: var(--glow); }
 
   .scope { position: relative; flex-grow: 1; }
   .scope svg { position: absolute; left: 0; top: 20px; overflow: visible; filter: var(--svg-glow); }
-  .node { position: absolute; width: 74px; height: 34px; margin: -17px 0 0 -37px; border-radius: 17px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font: 400 14px/1 var(--cond); letter-spacing: .03em; text-shadow: var(--glow); opacity: .5; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .node { position: absolute; width: 74px; height: 34px; margin: -17px 0 0 -37px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font: 400 14px/1 var(--cond); letter-spacing: .03em; text-shadow: var(--glow); opacity: .55; touch-action: none; user-select: none; -webkit-user-select: none; }
   .node small { font: 400 9px/1 var(--mono); opacity: .8; }
-  .node:hover { opacity: .85; }
-  .node.hint { opacity: 1; font-weight: 600; outline: 1.5px solid var(--p); box-shadow: 0 0 12px color-mix(in srgb, var(--p) 45%, transparent); }
+  .node:hover, .node:focus-visible { opacity: 1; outline: 0; text-decoration: underline dashed; text-underline-offset: 3px; }
+  .node.hint { opacity: 1; font-weight: 600; }
+  .node.hint::before, .node.hint::after { position: absolute; top: 50%; transform: translateY(-50%); font: 500 13px/1 var(--mono); }
+  .node.hint::before { content: '['; left: 2px; }
+  .node.hint::after { content: ']'; right: 2px; }
   .node.cur { opacity: .25; }
   .node.lit { opacity: 1; background: var(--p); color: var(--bg); text-shadow: none; box-shadow: 0 0 18px var(--p); }
   .node.black { font-size: 13px; }
-  .node.black:not(.hint):not(.lit) { opacity: .38; }
+  .node.black:not(.hint):not(.lit):not(:hover) { opacity: .4; }
 
   /* overlays */
   .panel { position: absolute; z-index: 10; top: 60px; right: 60px; width: 380px; padding: 18px; border: 1.5px solid var(--p); background: color-mix(in srgb, var(--bg) 92%, black); box-shadow: 0 0 24px color-mix(in srgb, var(--p) 40%, transparent); display: grid; gap: 14px; }
@@ -160,9 +122,10 @@
   .panel select { height: 34px; border: 1px solid var(--p); padding: 0 8px; background: var(--bg); font: 400 14px/1 var(--mono); }
   .panel p, .panel ol { margin: 0; font: 400 14px/1.4 var(--cond); letter-spacing: .02em; }
   .panel ol { padding-left: 18px; display: grid; gap: 4px; }
-  .panel .list { display: flex; flex-wrap: wrap; gap: 6px; }
-  .panel .list button { padding: 6px 10px; border: 1px solid color-mix(in srgb, var(--p) 60%, transparent); border-radius: 14px; font: 400 14px/1 var(--cond); letter-spacing: .06em; text-shadow: var(--glow); }
-  .panel .close { position: absolute; top: 12px; right: 14px; font: 500 12px/1 var(--mono); }
+  .panel .list { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+  .panel .list .t { font: 400 15px/1 var(--cond); letter-spacing: .04em; }
+  .panel .close { position: absolute; top: 12px; right: 14px; }
+  .panel .row { display: flex; justify-content: space-between; align-items: center; }
 </style>
 
 <div id="fit">
@@ -171,10 +134,10 @@
       <div class="scan"></div><div class="vignette"></div>
       <div class="content">
         <div class="status">
-          <button id="st-midi" type="button" aria-haspopup="dialog">MIDI</button>
-          <button id="st-sync" type="button" title="Send MIDI Clock so Ableton follows this tempo">SYNC ▸ ABLETON</button>
-          <button id="st-sound" type="button">SOUND ON</button>
-          <button id="st-phos" type="button" title="Screen colour">PHOSPHOR AMBER</button>
+          <button class="t" id="st-midi" type="button" aria-haspopup="dialog">MIDI</button>
+          <button class="t" id="st-sync" type="button" title="Send MIDI Clock so Ableton follows this tempo">SYNC ▸ ABLETON</button>
+          <button class="t" id="st-sound" type="button">SOUND ON</button>
+          <button class="t" id="st-phos" type="button" title="Screen colour">PHOSPHOR AMBER</button>
         </div>
 
         <div class="mark" aria-hidden="true">
@@ -182,7 +145,7 @@
           <svg class="sparks" width="1030" height="104" viewBox="0 0 1030 104">
             <g stroke="var(--p)" stroke-width="2.4" stroke-linecap="round" fill="none">
               <path transform="translate(150 22)" d="M0 -14 L0 14 M-12 -7 L12 7 M-12 7 L12 -7"/>
-              <path transform="translate(205 88)" d="M0 -11 L0 11 M-9.5 -5.5 L9.5 5.5 M-9.5 5.5 L9.5 -5.5"/>
+              <path transform="translate(70 64)" d="M0 -11 L0 11 M-9.5 -5.5 L9.5 5.5 M-9.5 5.5 L9.5 -5.5"/>
               <path transform="translate(515 8)" d="M0 -13 L0 13 M-11 -6.5 L11 6.5 M-11 6.5 L11 -6.5"/>
               <path transform="translate(905 22)" d="M0 -14 L0 14 M-12 -7 L12 7 M-12 7 L12 -7"/>
             </g>
@@ -191,74 +154,79 @@
 
         <div class="main">
           <div class="left">
+            <!-- LOOP: record/play on top, the take, then its settings -->
             <section class="sec" aria-labelledby="loop-title">
               <div class="sec-head">
-                <button class="btn sm" id="rec" type="button" data-state="idle"><span class="led"></span><span id="rec-label">REC</span></button>
-                <button class="btn sm" id="play" type="button"><span id="play-label">▶ PLAY</span></button>
+                <button class="t big" id="rec" type="button" data-state="idle"><span id="rec-label">● REC</span></button>
+                <button class="t big" id="play" type="button"><span id="play-label">▶ PLAY</span></button>
                 <span class="sec-title" id="loop-title">LOOP</span>
                 <span class="note" id="loop-note"></span>
-                <span style="flex-grow:1"></span>
-                <button class="txt" id="ideas" type="button" aria-haspopup="dialog">IDEAS ▸</button>
-                <button class="txt" id="save" type="button">SAVE MIDI ▸</button>
               </div>
               <div class="trace" id="loop-trace">
-                <svg id="loop-svg" width="640" height="170" viewBox="0 0 640 170"></svg>
+                <svg id="loop-svg" width="640" height="164" viewBox="0 0 640 164"></svg>
                 <div class="sweep" id="loop-dot"></div>
+              </div>
+              <div class="settings" id="loop-set">
+                <span class="grp" title="How long the loop is. AUTO = as you played it. Longer repeats the take, shorter cuts it."><span class="k">LENGTH</span><button class="t arr" id="bars-prev" type="button" aria-label="Shorter loop">◂</button><button class="t" id="v-bars" type="button" aria-label="Loop length, click to change"></button><button class="t arr" id="bars-next" type="button" aria-label="Longer loop">▸</button></span>
+                <span class="grp" title="Snaps recorded chords to the grid so small timing slips don't throw the loop off. OFF keeps your exact timing."><span class="k">QUANTIZE</span><button class="t arr" id="q-prev" type="button" aria-label="Previous quantize">◂</button><button class="t" id="v-q" type="button" aria-label="Quantize, click to change"></button><button class="t arr" id="q-next" type="button" aria-label="Next quantize">▸</button></span>
+                <span style="flex-grow:1"></span>
+                <button class="t" id="ideas" type="button" aria-haspopup="dialog">IDEAS ▸</button>
+                <button class="t" id="save" type="button">SAVE MIDI ▸</button>
               </div>
             </section>
 
-            <section class="sec" aria-labelledby="eu-title" style="margin-top:26px">
+            <!-- EUCLIDEAN: on/off on top, the pattern, then its settings -->
+            <section class="sec" aria-labelledby="eu-title">
               <div class="sec-head">
-                <button class="switch" id="eu" type="button" role="switch" aria-checked="false" aria-label="Euclidean sequencer"><span id="eu-state">OFF</span><span class="knob" aria-hidden="true"></span></button>
+                <span class="seg" role="radiogroup" aria-label="Euclidean sequencer"><span class="bracket" aria-hidden="true">[</span><button class="t big" id="eu-off" type="button" role="radio" aria-checked="true">OFF</button><button class="t big" id="eu-on" type="button" role="radio" aria-checked="false">ON</button><span class="bracket" aria-hidden="true">]</span></span>
                 <span class="sec-title" id="eu-title">EUCLIDEAN</span>
                 <span class="note" id="eu-note"></span>
               </div>
               <div class="trace" id="eu-trace">
-                <svg id="eu-svg" width="640" height="100" viewBox="0 0 640 100"></svg>
+                <svg id="eu-svg" width="640" height="96" viewBox="0 0 640 96"></svg>
                 <div class="sweep" id="eu-dot"></div>
               </div>
-              <div class="eu-ctl eu-dim" id="eu-ctl">
-                <span class="ctl">STEPS <button class="arrow" data-edit="steps:-1" type="button" aria-label="Fewer steps">◂</button><b id="v-steps"></b><button class="arrow" data-edit="steps:1" type="button" aria-label="More steps">▸</button></span>
-                <span class="ctl">HITS <button class="arrow" data-edit="hits:-1" type="button" aria-label="Fewer hits">◂</button><b id="v-hits"></b><button class="arrow" data-edit="hits:1" type="button" aria-label="More hits">▸</button></span>
-                <span class="ctl">ROTATE <button class="arrow" data-edit="rotate:-1" type="button" aria-label="Rotate back">◂</button><b id="v-rot"></b><button class="arrow" data-edit="rotate:1" type="button" aria-label="Rotate forward">▸</button></span>
-                <button class="ctl" id="v-rate-btn" type="button" title="Step length">STEP <b id="v-rate"></b> ▸</button>
-                <button class="ctl" id="v-gate-btn" type="button" title="Note length">LENGTH <b id="v-gate"></b> ▸</button>
-                <span class="ctl">GROOVE <button class="arrow" id="groove-prev" type="button" aria-label="Previous groove">◂</button><b id="v-groove" style="min-width:78px"></b><button class="arrow" id="groove-next" type="button" aria-label="Next groove">▸</button></span>
+              <div class="settings dim" id="eu-ctl">
+                <span class="grp"><span class="k">STEPS</span><button class="t arr" data-edit="steps:-1" type="button" aria-label="Fewer steps">◂</button><b id="v-steps"></b><button class="t arr" data-edit="steps:1" type="button" aria-label="More steps">▸</button></span>
+                <span class="grp"><span class="k">HITS</span><button class="t arr" data-edit="hits:-1" type="button" aria-label="Fewer hits">◂</button><b id="v-hits"></b><button class="t arr" data-edit="hits:1" type="button" aria-label="More hits">▸</button></span>
+                <span class="grp"><span class="k">ROTATE</span><button class="t arr" data-edit="rotate:-1" type="button" aria-label="Rotate back">◂</button><b id="v-rot"></b><button class="t arr" data-edit="rotate:1" type="button" aria-label="Rotate forward">▸</button></span>
+                <span class="grp" title="Step length"><span class="k">STEP</span><button class="t" id="v-rate" type="button" aria-label="Step length, click to change"></button></span>
+                <span class="grp" title="How long each hit rings"><span class="k">NOTE</span><button class="t" id="v-gate" type="button" aria-label="Note length, click to change"></button></span>
+                <span class="grp"><span class="k">GROOVE</span><button class="t arr" id="groove-prev" type="button" aria-label="Previous groove">◂</button><b id="v-groove" style="min-width:64px"></b><button class="t arr" id="groove-next" type="button" aria-label="Next groove">▸</button></span>
               </div>
             </section>
           </div>
 
           <div class="right">
             <div class="readout">
+              <!-- tempo: one slim line -->
+              <div class="r-row">
+                <div class="tempo-row">
+                  <span class="lbl">TEMPO</span>
+                  <input class="bpm" id="bpm" type="number" min="40" max="240" step="1" aria-label="Tempo in BPM">
+                  <span class="lbl">BPM</span>
+                  <span class="note" id="tempo-src" style="flex-grow:1"></span>
+                  <button class="t" id="half" type="button" title="Half-time reading">÷2</button>
+                  <button class="t" id="dbl" type="button" title="Double-time reading">×2</button>
+                </div>
+              </div>
               <!-- key + scale -->
               <div class="r-row r2">
                 <div class="r-cell">
                   <span class="lbl">KEY</span>
-                  <div class="stepper-big"><button class="arrow ring" id="root-prev" type="button" aria-label="Previous key">◂</button><span class="r-val" id="root">C</span><button class="arrow ring" id="root-next" type="button" aria-label="Next key">▸</button></div>
+                  <div class="stepper-big"><button class="t arr" id="root-prev" type="button" aria-label="Previous key">◂</button><span class="r-val" id="root">C</span><button class="t arr" id="root-next" type="button" aria-label="Next key">▸</button></div>
                 </div>
                 <div class="r-cell">
                   <span class="lbl">SCALE</span>
-                  <div class="stepper-big"><button class="arrow ring" id="scale-prev" type="button" aria-label="Previous scale">◂</button><span class="r-val" id="scale">MAJOR</span><button class="arrow ring" id="scale-next" type="button" aria-label="Next scale">▸</button></div>
-                </div>
-              </div>
-              <!-- tempo -->
-              <div class="r-row">
-                <div class="r-cell" style="padding-bottom:6px">
-                  <div class="row"><span class="lbl">TEMPO</span><span class="lbl" id="tempo-src"></span></div>
-                  <div class="row" style="align-items:flex-end">
-                    <input class="bpm" id="bpm" type="number" min="40" max="240" step="1" aria-label="Tempo in BPM">
-                    <span class="mid" style="margin-bottom:10px">bpm</span>
-                    <span style="flex-grow:1"></span>
-                    <span style="display:flex;gap:6px;margin-bottom:10px"><button class="mini" id="half" type="button" title="Half-time reading">÷2</button><button class="mini" id="dbl" type="button" title="Double-time reading">×2</button></span>
-                  </div>
+                  <div class="stepper-big"><button class="t arr" id="scale-prev" type="button" aria-label="Previous scale">◂</button><span class="r-val" id="scale">MAJOR</span><button class="t arr" id="scale-next" type="button" aria-label="Next scale">▸</button></div>
                 </div>
               </div>
               <!-- chord sound -->
               <div class="r-row r4" role="group" aria-label="Chord sound">
-                <button class="r-cell opt" id="opt-size" type="button" title="Chord size: triads, 7ths, 9ths, 11ths, 13ths"><span class="lbl">CHORDS</span><span class="opt-val" id="size"></span><span class="opt-ic" aria-hidden="true">▸</span></button>
-                <button class="r-cell opt" id="opt-smooth" type="button" title="Voice leading: each chord moves as little as possible from the last"><span class="lbl">VOICING</span><span class="opt-val" id="smooth"></span><span class="opt-ic" aria-hidden="true">▸</span></button>
-                <button class="r-cell opt" id="opt-spread" type="button" title="How spread out the notes are"><span class="lbl">SPREAD</span><span class="opt-val" id="spread"></span><span class="opt-ic" aria-hidden="true">▸</span></button>
-                <button class="r-cell opt" id="opt-inv" type="button" title="Which chord note is lowest"><span class="lbl">INVERT</span><span class="opt-val" id="inv"></span><span class="opt-ic" aria-hidden="true">▸</span></button>
+                <button class="r-cell" id="opt-size" type="button" title="Chord size: triads, 7ths, 9ths, 11ths, 13ths"><span class="lbl">CHORDS</span><span class="opt-val" id="size"></span></button>
+                <button class="r-cell" id="opt-smooth" type="button" title="Voice leading: each chord moves as little as possible from the last"><span class="lbl">VOICING</span><span class="opt-val" id="smooth"></span></button>
+                <button class="r-cell" id="opt-spread" type="button" title="How spread out the notes are"><span class="lbl">SPREAD</span><span class="opt-val" id="spread"></span></button>
+                <button class="r-cell" id="opt-inv" type="button" title="Which chord note is lowest"><span class="lbl">INVERT</span><span class="opt-val" id="inv"></span></button>
               </div>
               <!-- now / next / odds -->
               <div class="r-row r3">
@@ -268,8 +236,8 @@
               </div>
             </div>
             <div class="scope">
-              <span class="lbl">SCOPE · TAP OR HOLD A CHORD</span>
-              <svg id="scope-svg" width="380" height="200" viewBox="0 0 380 200"></svg>
+              <span class="lbl">SCOPE · TAP OR HOLD A CHORD · [ ] = GOOD NEXT</span>
+              <svg id="scope-svg" width="394" height="250" viewBox="0 0 394 250"></svg>
               <div id="scope-nodes"></div>
             </div>
           </div>
@@ -277,13 +245,13 @@
       </div>
 
       <div class="panel" id="panel-midi" hidden role="dialog" aria-label="MIDI settings">
-        <button class="close" type="button" data-close>CLOSE ✕</button>
+        <button class="t close" type="button" data-close>CLOSE ✕</button>
         <h3 class="glow">MIDI</h3>
         <p id="midi-note">MIDI works in the local app on your Mac (double-click Start Harmonic). Allow MIDI when Chrome asks.</p>
         <div id="midi-fields" hidden style="display:grid;gap:12px">
           <label><span class="lbl">INPUT · YOUR KEYBOARD</span><select id="midi-in"></select></label>
           <label><span class="lbl">OUTPUT · TO ABLETON</span><select id="midi-out"></select></label>
-          <button class="btn" id="panic" type="button">ALL NOTES OFF</button>
+          <button class="t big" id="panic" type="button" style="justify-self:start">ALL NOTES OFF ▸</button>
         </div>
         <ol>
           <li>Audio MIDI Setup → Window → Show MIDI Studio → IAC Driver → Device is online.</li>
@@ -293,12 +261,12 @@
       </div>
 
       <div class="panel" id="panel-ideas" hidden role="dialog" aria-label="Ideas" style="top:auto;bottom:90px;left:60px;right:auto;width:470px">
-        <button class="close" type="button" data-close>CLOSE ✕</button>
+        <button class="t close" type="button" data-close>CLOSE ✕</button>
         <h3 class="glow">IDEAS</h3>
         <span class="lbl">FAMOUS PROGRESSIONS · LOADS AS YOUR LOOP</span>
         <div class="list" id="presets"></div>
-        <div class="row"><span class="lbl">GENERATE · HINTS LEARNED FROM</span><button class="mini" id="style" type="button"></button></div>
-        <button class="btn" id="generate" type="button" style="justify-self:start">GENERATE ONE</button>
+        <div class="row"><span class="lbl">GENERATE · HINTS LEARNED FROM</span><button class="t" id="style" type="button"></button></div>
+        <button class="t big" id="generate" type="button" style="justify-self:start">GENERATE ONE ▸</button>
       </div>
     </div>
   </div>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   euclid, patternSteps, patternHits, toggleStep, cycleBeats, GROOVES, grooveName,
-  detectTempo, takeFromRecording, reinterpret, takeFromChords, takeToMidiEvents, writeMidi,
+  detectTempo, takeFromRecording, reinterpret, takeFromChords, takeToMidiEvents, writeMidi, quantizeTake, setLoopBars,
   type Pattern,
 } from '../engine';
 
@@ -115,5 +115,50 @@ describe('takes', () => {
     expect(t.beats).toBe(8);
     const bytes = writeMidi(takeToMidiEvents(t), t.bpm);
     expect(String.fromCharCode(...bytes.slice(0, 4))).toBe('MThd');
+  });
+});
+
+describe('quantize', () => {
+  const sloppy = {
+    beats: 16, bpm: 120, tempoSource: 'detected' as const,
+    events: [
+      { start: 0.04, length: 3.9, notes: [60], velocity: 90 },
+      { start: 4.11, length: 3.7, notes: [62], velocity: 90 },   // a bit late
+      { start: 7.86, length: 2.3, notes: [64], velocity: 90 },   // early, and overlaps the next one
+      { start: 10.02, length: 5.9, notes: [65], velocity: 90 },
+    ],
+  };
+  it('1/16 snaps starts to the nearest sixteenth', () => {
+    const q = quantizeTake(sloppy, '1/16');
+    expect(q.events.map((e) => e.start)).toEqual([0, 4, 7.75, 10]);
+  });
+  it('1/4 snaps to beats', () => expect(quantizeTake(sloppy, '1/4').events.map((e) => e.start)).toEqual([0, 4, 8, 10]));
+  it('no chord overlaps the next after quantizing', () => {
+    const q = quantizeTake(sloppy, '1/16');
+    q.events.slice(0, -1).forEach((e, i) => expect(e.start + e.length).toBeLessThanOrEqual(q.events[i + 1].start));
+  });
+  it('every chord keeps at least one grid step and stays inside the loop', () => {
+    const q = quantizeTake({ ...sloppy, events: [{ start: 15.99, length: 0.01, notes: [60], velocity: 90 }] }, '1/16');
+    expect(q.events[0].length).toBeGreaterThanOrEqual(0.25);
+    expect(q.events[0].start + q.events[0].length).toBeLessThanOrEqual(16);
+  });
+  it('off leaves the take untouched', () => expect(quantizeTake(sloppy, 'off')).toBe(sloppy));
+});
+
+describe('loop length', () => {
+  const t = takeFromChords([{ notes: [60], beats: 4 }, { notes: [65], beats: 4 }], 120);
+  it('longer loop repeats the take', () => {
+    const l = setLoopBars(t, 4);
+    expect(l.beats).toBe(16);
+    expect(l.events.map((e) => e.start)).toEqual([0, 4, 8, 12]);
+  });
+  it('shorter loop cuts it', () => {
+    const s = setLoopBars(t, 1);
+    expect(s.beats).toBe(4);
+    expect(s.events.length).toBe(1);
+  });
+  it('odd lengths repeat and trim cleanly (2-bar take in 3 bars)', () => {
+    const l = setLoopBars(t, 3);
+    expect(l.events.map((e) => [e.start, e.length])).toEqual([[0, 4], [4, 4], [8, 4]]);
   });
 });

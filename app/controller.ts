@@ -14,9 +14,9 @@
 import {
   scaleFromPitchClass, buildChordMap, chordForKey, voiceLead, suggestNext, generateProgression,
   resolvePreset, PRESETS, GROOVES, patternHits, cycleBeats, takeFromRecording, takeFromChords,
-  reinterpret, takeToMidiEvents, writeMidi, noteLabel,
+  reinterpret, takeToMidiEvents, writeMidi, noteLabel, quantizeTake, setLoopBars,
   type Scale, type ChordSlot, type ScaleId, type ChordSize, type Spread, type Suggestion,
-  type Pattern, type Take, type RawEvent, type Style, type Preset,
+  type Pattern, type Take, type RawEvent, type Style, type Preset, type Quantize,
 } from '../engine';
 import { MidiBridge } from '../explorer/midi';
 import { Synth } from './synth';
@@ -52,8 +52,15 @@ export class Controller {
   hints: Suggestion[] = [];
   /** What is sounding right now, for lighting the UI. */
   sounding = new Map<string, Out>();
+  /** The loop that plays: derived from rawTake + quantize + loopBars. */
   take: Take | null = null;
+  /** Exactly what was captured (never modified by quantize / length). */
+  rawTake: Take | null = null;
   takeName = '';
+  /** Snap recorded takes to this grid. Default 1/16. */
+  quantize: Quantize = '1/16';
+  /** Loop length: 'auto' = as recorded, or a fixed number of bars. */
+  loopBars: 'auto' | number = 'auto';
   playing = false;
   rec: RecState = 'idle';
 
@@ -111,7 +118,7 @@ export class Controller {
       this.bpm = next;
       this.transportStart = now - (beat * 60000) / next; // keep the beat position continuous
     } else this.bpm = next;
-    if (this.take) this.take = { ...this.take, bpm: this.bpm };
+    if (this.rawTake) { this.rawTake = { ...this.rawTake, bpm: this.bpm }; this.derive(); }
     this.notify();
   }
 
@@ -187,7 +194,9 @@ export class Controller {
     const events = this.recEvents.sort((a, b) => a.startMs - b.startMs);
     if (!events.length) return;
     const take = takeFromRecording(events, now - this.recT0, this.euclidOn ? this.bpm : undefined);
-    this.take = take;
+    this.rawTake = take;
+    this.loopBars = 'auto';
+    this.derive();
     this.takeName = 'Your take';
     this.bpm = take.bpm;
     this.play(); // looper-style: the loop starts right away
@@ -195,11 +204,13 @@ export class Controller {
 
   /** ×2 / ÷2: fix a double- or half-time guess without changing the sound. */
   reinterpretTake(factor: 2 | 0.5) {
-    if (!this.take) return;
-    this.take = reinterpret(this.take, factor);
+    if (!this.rawTake) return;
+    this.rawTake = reinterpret(this.rawTake, factor);
+    this.loopBars = 'auto';
+    this.derive();
     const wasPlaying = this.playing;
     if (wasPlaying) this.stop();
-    this.bpm = this.take.bpm;
+    this.bpm = this.rawTake.bpm;
     if (wasPlaying) this.play();
     this.notify();
   }
@@ -223,7 +234,9 @@ export class Controller {
       return { notes: prev, beats: 4, keyPc: pc, label: hit.slot.chord.symbol };
     });
     this.stop();
-    this.take = takeFromChords(chords, this.bpm);
+    this.rawTake = takeFromChords(chords, this.bpm);
+    this.loopBars = 'auto';
+    this.derive();
     this.takeName = name;
     this.play();
   }
@@ -243,7 +256,19 @@ export class Controller {
     if (!this.euclidOn) this.stopTransport();
     this.notify();
   }
-  clearTake() { this.stop(); this.take = null; this.takeName = ''; this.notify(); }
+  clearTake() { this.stop(); this.take = this.rawTake = null; this.takeName = ''; this.notify(); }
+
+  /** Rebuild the playing loop from the raw take (quantize + length). Keeps playing seamlessly. */
+  private derive() {
+    if (!this.rawTake) { this.take = null; return; }
+    let t = quantizeTake(this.rawTake, this.quantize);
+    if (this.loopBars !== 'auto') t = setLoopBars(t, this.loopBars);
+    this.take = t;
+  }
+  setQuantize(q: Quantize) { this.quantize = q; this.derive(); this.notify(); }
+  setLoopLength(bars: 'auto' | number) { this.loopBars = bars; this.derive(); this.notify(); }
+  /** Bars the loop has right now. */
+  get bars() { return this.take ? this.take.beats / 4 : 0; }
 
   /** 0..1 position in the loop, for the playhead. */
   loopPosition(): number {

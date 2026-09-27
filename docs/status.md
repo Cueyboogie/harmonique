@@ -50,6 +50,9 @@
   - "Rhythm" renamed **Euclidean** everywhere.
   - Layout v3 (Diego): left side = just the two visualizers, each with its own control on top (REC/PLAY on the LOOP trace, ON/OFF switch on the EUCLIDEAN trace; Ideas/Save MIDI as small text links). All settings live in the right-hand readout box as compartments: KEY | SCALE, TEMPO, CHORDS | VOICING | SPREAD | INVERT, NOW | NEXT | ODDS; then the SCOPE.
 
+- Layout v4 (Diego): no rings or pills. One control language: terminal text, dashed underline = pressable, hover/focus/on = inverse video. LOOP gets **LENGTH** (AUTO · 1 · 2 · 4 · 8 · 16 bars; longer repeats the take, shorter cuts it) and **QUANTIZE** (1/16 default · 1/8 · 1/4 · OFF) under its trace. Euclidean = [OFF|ON]. Readout: slim TEMPO line on top, big KEY | SCALE, options, NOW/NEXT/ODDS; roomier SCOPE ([ ] marks good next chords).
+- Takes keep the raw recording; quantize + length are applied on top, so both can be changed any time without losing what you played. 357 tests.
+
 ## Next
 1. **Diego listens:** presets, Generate (Pop vs Bach, Tension, Color), hints, Smooth on/off. What sounds great, what doesn't.
 2. **Phase 8–9: Euclidean rhythm + harmonic sequencer.** Rhythm patterns applied to the progression (chords, bass, arps). Sync tempo to Ableton later.

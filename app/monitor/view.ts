@@ -10,7 +10,7 @@
  */
 import {
   SCALES, CHORD_SIZES, SPREADS, PRESETS, GROOVES, RATES, BLACK_PCS, noteLabel,
-  patternSteps, grooveName, type Pattern, type ScaleId,
+  patternSteps, grooveName, QUANTIZES, type Pattern, type ScaleId, type Quantize,
 } from '../../engine';
 import type { Controller } from '../controller';
 
@@ -23,9 +23,10 @@ const PHOSPHORS = [
   { name: 'CREAM', p: '#EEE0CB', bg: '#12100C' },
 ];
 const GATES = [0.25, 0.5, 0.8, 1];
-const LOOP = { w: 640, h: 170, base: 154 };
-const EU = { w: 640, h: 100, base: 72 };
-const SCOPE = { cx: 190, cy: 100, r: 84 };
+const LOOP = { w: 640, h: 164, base: 148 };
+const EU = { w: 640, h: 96, base: 68 };
+const SCOPE = { cx: 197, cy: 122, r: 102 };
+const BAR_CHOICES: ('auto' | number)[] = ['auto', 1, 2, 4, 8, 16];
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -53,7 +54,7 @@ export function mountMonitor(c: Controller) {
   }
 
   /* ---------- geometry helpers ---------- */
-  const levelOf = (keyPc: number | undefined) => (keyPc === undefined ? LOOP.base : 140 - (keyPc / 11) * 92);
+  const levelOf = (keyPc: number | undefined) => (keyPc === undefined ? LOOP.base : 140 - (keyPc / 11) * 88);
   const scopePos = (pc: number) => {
     const a = ((pc * 30 - 90) * Math.PI) / 180;
     return { x: SCOPE.cx + SCOPE.r * Math.cos(a), y: SCOPE.cy + SCOPE.r * Math.sin(a) };
@@ -73,7 +74,7 @@ export function mountMonitor(c: Controller) {
     $('root').textContent = noteLabel(c.scale.root);
     const scaleName = up(c.scale.def.name);
     $('scale').textContent = scaleName;
-    $('scale').style.fontSize = scaleName.length > 12 ? '17px' : scaleName.length > 8 ? '22px' : '';
+    $('scale').style.fontSize = scaleName.length > 14 ? '18px' : scaleName.length > 10 ? '22px' : scaleName.length > 7 ? '28px' : '';
     $('size').textContent = c.size === 'triad' ? 'TRIADS' : up(c.size);
     $('smooth').textContent = c.smooth ? 'SMOOTH' : 'OFF';
     $('spread').textContent = up(c.spread);
@@ -87,7 +88,12 @@ export function mountMonitor(c: Controller) {
     const note = $('loop-note');
     if (c.rec === 'armed') note.textContent = 'READY · PLAY YOUR FIRST CHORD';
     else if (c.rec === 'recording') note.textContent = 'RECORDING · STOP CLOSES THE LOOP';
-    else note.textContent = t ? `${t.beats / 4} ${t.beats === 4 ? 'BAR' : 'BARS'} · ${up(c.takeName)} · ON REPEAT` : 'PRESS REC, THEN PLAY CHORDS';
+    else note.textContent = t ? up(c.takeName) : 'PRESS REC, THEN PLAY CHORDS';
+    const bars = c.bars;
+    const barsTxt = (n: number) => `${n} ${n === 1 ? 'BAR' : 'BARS'}`;
+    $('v-bars').textContent = !t ? 'AUTO' : c.loopBars === 'auto' ? `AUTO · ${barsTxt(bars)}` : barsTxt(bars);
+    $('v-q').textContent = c.quantize === 'off' ? 'OFF' : c.quantize;
+    for (const id of ['bars-prev', 'v-bars', 'bars-next']) ($(id) as HTMLButtonElement).disabled = !t || c.rec !== 'idle';
     if (!t || c.rec !== 'idle') {
       svg.innerHTML = `<path d="M0 ${LOOP.base} L${LOOP.w} ${LOOP.base}" stroke="var(--p)" stroke-width="2" stroke-opacity=".5" stroke-dasharray="${c.rec === 'idle' ? '4 6' : '0'}" fill="none"/>`;
       return;
@@ -102,11 +108,10 @@ export function mountMonitor(c: Controller) {
       const lv = levelOf(e.keyPc);
       if (xs > cursor + 1) d += ` L${xs.toFixed(1)} ${LOOP.base}`;
       d += ` L${xs.toFixed(1)} ${lv.toFixed(1)} L${(xs + 5).toFixed(1)} ${(lv - 22).toFixed(1)} L${(xs + 10).toFixed(1)} ${lv.toFixed(1)} L${Math.max(xs + 10, xe - 3).toFixed(1)} ${lv.toFixed(1)}`;
-      if (xe - xs > 34) labels += `<text x="${(xs + 14).toFixed(1)}" y="${(lv - 10).toFixed(1)}" fill="var(--p)" stroke="none" style="font:400 16px var(--cond);letter-spacing:.04em">${esc(e.label ?? '')}</text>`;
+      if (xe - xs > 44) labels += `<text x="${(xs + 14).toFixed(1)}" y="${(lv - 10).toFixed(1)}" fill="var(--p)" stroke="none" style="font:400 16px var(--cond);letter-spacing:.04em">${esc(e.label ?? '')}</text>`;
       cursor = xe;
     });
     d += ` L${cursor.toFixed(1)} ${LOOP.base} L${W} ${LOOP.base}`;
-    const bars = t.beats / 4;
     const ticks = Array.from({ length: bars + 1 }, (_, i) => `<line x1="${(i / bars) * W}" y1="${LOOP.h - 6}" x2="${(i / bars) * W}" y2="${LOOP.h + 2}" stroke="var(--p)" stroke-width="1.5"/>`).join('');
     svg.innerHTML = `<path d="${d}" fill="none" stroke="var(--p)" stroke-width="2" stroke-linejoin="round"/>${labels}${ticks}`;
   }
@@ -135,17 +140,17 @@ export function mountMonitor(c: Controller) {
     $('v-rate').textContent = p.rate;
     $('v-gate').textContent = `${Math.round(p.gate * 100)}%`;
     $('v-groove').textContent = name ? up(name) : 'CUSTOM';
-    $('eu-ctl').classList.toggle('is-off', !c.euclidOn);
-    $('eu-ctl').classList.toggle('eu-dim', !c.euclidOn);
-    const eu = $('eu');
-    eu.setAttribute('aria-checked', String(c.euclidOn));
-    $('eu-state').textContent = c.euclidOn ? 'ON' : 'OFF';
+    $('eu-ctl').classList.toggle('dim', !c.euclidOn);
+    $('eu-on').setAttribute('aria-checked', String(c.euclidOn));
+    $('eu-off').setAttribute('aria-checked', String(!c.euclidOn));
   }
 
   function renderButtons() {
     const rec = $('rec');
     rec.dataset.state = c.rec;
-    $('rec-label').textContent = c.rec === 'idle' ? 'REC' : c.rec === 'armed' ? 'READY' : 'STOP';
+    rec.classList.toggle('on', c.rec !== 'idle');
+    rec.classList.toggle('blink', c.rec !== 'idle');
+    $('rec-label').textContent = c.rec === 'idle' ? '● REC' : c.rec === 'armed' ? '● READY' : '■ STOP';
     rec.setAttribute('aria-label', c.rec === 'idle' ? 'Record' : c.rec === 'armed' ? 'Cancel recording' : 'Stop recording');
     const play = $<HTMLButtonElement>('play');
     play.disabled = !c.take;
@@ -161,7 +166,7 @@ export function mountMonitor(c: Controller) {
     const bpm = $<HTMLInputElement>('bpm');
     if (document.activeElement !== bpm) bpm.value = String(Math.round(c.bpm));
     const detected = c.take?.tempoSource === 'detected';
-    $('tempo-src').textContent = detected ? 'FROM YOUR PLAYING' : c.clockOut ? 'ABLETON FOLLOWS' : 'SET';
+    $('tempo-src').textContent = detected ? 'FROM YOUR PLAYING' : c.clockOut ? 'ABLETON FOLLOWS' : '';
     $('half').hidden = $('dbl').hidden = !c.take;
     const cur = c.current;
     const next = c.hints.find((h) => h.kind === 'likely');
@@ -187,7 +192,7 @@ export function mountMonitor(c: Controller) {
     $('scope-svg').innerHTML = `<circle cx="${SCOPE.cx}" cy="${SCOPE.cy}" r="${SCOPE.r}" fill="none" stroke="var(--p)" stroke-opacity=".35" stroke-dasharray="2 5"/>
       <line x1="${SCOPE.cx - SCOPE.r}" y1="${SCOPE.cy}" x2="${SCOPE.cx + SCOPE.r}" y2="${SCOPE.cy}" stroke="var(--p)" stroke-opacity=".16"/>
       <line x1="${SCOPE.cx}" y1="${SCOPE.cy - SCOPE.r}" x2="${SCOPE.cx}" y2="${SCOPE.cy + SCOPE.r}" stroke="var(--p)" stroke-opacity=".16"/>
-      ${lines}<circle cx="${SCOPE.cx}" cy="${SCOPE.cy}" r="32" fill="var(--bg)" stroke="var(--p)" stroke-width="2"/>
+      ${lines}<circle cx="${SCOPE.cx}" cy="${SCOPE.cy}" r="38" fill="var(--bg)" stroke="var(--p)" stroke-width="2"/>
       <text x="${SCOPE.cx}" y="${SCOPE.cy + 6}" text-anchor="middle" fill="var(--p)" style="font:500 16px var(--cond)">${center}</text>`;
     $('scope-nodes').innerHTML = c.map.map((slot) => {
       const q = scopePos(slot.keyPc);
@@ -280,11 +285,26 @@ export function mountMonitor(c: Controller) {
   $('opt-smooth').onclick = () => c.set('smooth', !c.smooth);
   $('opt-spread').onclick = () => c.set('spread', cycle(SPREADS, c.spread, 1));
   $('opt-inv').onclick = () => c.set('inversion', (c.inversion + 1) % (c.size === 'triad' ? 3 : 4));
-  $('v-rate-btn').onclick = () => c.setPattern({ ...c.pattern, rate: cycle(RATES, c.pattern.rate, 1) });
-  $('v-gate-btn').onclick = () => c.setPattern({ ...c.pattern, gate: GATES[(GATES.findIndex((g) => g >= c.pattern.gate - 0.01) + 1) % GATES.length] });
+  $('v-rate').onclick = () => c.setPattern({ ...c.pattern, rate: cycle(RATES, c.pattern.rate, 1) });
+  $('v-gate').onclick = () => c.setPattern({ ...c.pattern, gate: GATES[(GATES.findIndex((g) => g >= c.pattern.gate - 0.01) + 1) % GATES.length] });
   $('groove-prev').onclick = () => stepGroove(-1);
   $('groove-next').onclick = () => stepGroove(1);
-  $('eu').onclick = () => { c.synth.unlock(); c.setEuclid(!c.euclidOn); };
+  $('eu-on').onclick = () => { c.synth.unlock(); c.setEuclid(true); };
+  $('eu-off').onclick = () => c.setEuclid(false);
+  const stepBars = (d: number) => {
+    // From AUTO, move to the nearest length above/below what was played; past either end, back to AUTO.
+    const nums = BAR_CHOICES.filter((x): x is number => x !== 'auto');
+    const cur = c.loopBars === 'auto' ? c.bars : c.loopBars;
+    const n = d > 0 ? nums.find((x) => x > cur) : [...nums].reverse().find((x) => x < cur);
+    c.setLoopLength(n ?? 'auto');
+  };
+  $('bars-prev').onclick = () => stepBars(-1);
+  $('bars-next').onclick = () => stepBars(1);
+  $('v-bars').onclick = () => stepBars(1);
+  const stepQ = (d: number) => c.setQuantize(cycle(QUANTIZES, c.quantize, d) as Quantize);
+  $('q-prev').onclick = () => stepQ(-1);
+  $('q-next').onclick = () => stepQ(1);
+  $('v-q').onclick = () => stepQ(1);
   $('rec').onclick = () => { c.synth.unlock(); c.pressRecord(); };
   $('play').onclick = () => (c.playing ? c.stop() : c.play());
   $<HTMLInputElement>('bpm').onchange = (e) => c.setBpm(Number((e.target as HTMLInputElement).value) || c.bpm);
