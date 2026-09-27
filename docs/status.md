@@ -66,6 +66,8 @@
 - **Tempo in Live is two-way (Diego):** with Live stopped, REC → play at any speed → STOP detects your tempo (rounded to a whole BPM) and **sets Live's tempo** ([live.object] `set tempo`). With Live playing, you're playing along, so Live's tempo holds. Typing a BPM or ÷2 ×2 also sets Live's tempo; changing tempo in Live updates Harmonique. Logo 40% smaller (22 px) with matching 9 px text.
 - **Capture-style loops (Diego: loops cut off oddly, like when STOP was pressed):** the loop no longer depends on when you press STOP. Like Ableton's Capture MIDI: your first chord is bar 1 beat 1; the tempo is read from the chord changes only (`captureTempo`: every tempo 70–170 tried, changes snapped to the 16th grid, scored by grid distance + how musical the positions are + a pull toward ~110); the loop is a whole number of bars set by your last chord (its start, and roughly where you let go). Simulation over 480 random takes (72–162 BPM, ±35 ms timing, 8 patterns): 80–95% exact tempo per pattern, most of the rest a ×2/÷2 reading. Late STOP (0 / 0.7 / 1.6 s) → same 100 BPM, 4 bars. 366 tests.
 
+- **Quantize now OFF by default (Diego):** takes play back exactly as played, errors included, like Ableton's Capture; fix details in Live. 1/16, 1/8, 1/4 still one click away.
+
 ## Next
 1. **Diego listens:** presets, Generate (Pop vs Bach, Tension, Color), hints, Smooth on/off. What sounds great, what doesn't.
 2. **Phase 8–9: Euclidean rhythm + harmonic sequencer.** Rhythm patterns applied to the progression (chords, bass, arps). Sync tempo to Ableton later.

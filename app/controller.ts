@@ -64,8 +64,8 @@ export class Controller {
   /** Exactly what was captured (never modified by quantize / length). */
   rawTake: Take | null = null;
   takeName = '';
-  /** Snap recorded takes to this grid. Default 1/16. */
-  quantize: Quantize = '1/16';
+  /** Snap recorded takes to this grid (OFF, 1/16, 1/8, 1/4). */
+  quantize: Quantize = 'off'; // off by default: takes play back exactly as played (like Ableton's Capture); fix details in Live
   /** Loop length: 'auto' = as recorded, or a fixed number of bars. */
   loopBars: 'auto' | number = 'auto';
   playing = false;

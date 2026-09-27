@@ -192,7 +192,7 @@ export function takeToMidiEvents(take: Take): NoteEvent[] {
 /* ---------------- quantize & loop length ---------------- */
 
 export type Quantize = 'off' | '1/16' | '1/8' | '1/4';
-export const QUANTIZES: readonly Quantize[] = ['1/16', '1/8', '1/4', 'off'];
+export const QUANTIZES: readonly Quantize[] = ['off', '1/16', '1/8', '1/4'];
 export const QUANTIZE_BEATS: Record<Exclude<Quantize, 'off'>, number> = { '1/16': 0.25, '1/8': 0.5, '1/4': 1 };
 
 /**
