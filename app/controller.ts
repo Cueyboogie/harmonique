@@ -14,7 +14,7 @@
 import {
   scaleFromPitchClass, buildChordMap, chordForKey, voiceLead, suggestNext, generateProgression,
   resolvePreset, PRESETS, GROOVES, patternHits, cycleBeats, takeFromRecording, takeFromChords,
-  reinterpret, takeToMidiEvents, writeMidi, noteLabel, quantizeTake, setLoopBars,
+  reinterpret, takeToMidiEvents, writeMidi, noteLabel, quantizeTake, setLoopBars, snapToScale, scaleNoteLabel,
   type Scale, type ChordSlot, type ScaleId, type ChordSize, type Spread, type Suggestion,
   type Pattern, type Take, type RawEvent, type Style, type Preset, type Quantize,
 } from '../engine';
@@ -22,9 +22,14 @@ import { MidiBridge } from '../explorer/midi';
 import { Synth } from './synth';
 
 export type RecState = 'idle' | 'armed' | 'recording';
+export type PlayMode = 'chords' | 'notes';
+/** MIDI channels (0-based): chords on Ch 1, single notes on Ch 2, so Ableton tracks can pick one. */
+export const CHORD_CH = 0;
+export const NOTE_CH = 1;
 type Source = 'live' | 'euclid' | 'loop';
 
-interface Out { notes: number[]; keyPc: number; source: Source; label: string }
+interface Out { notes: number[]; keyPc: number; source: Source; label: string; ch: number }
+interface Held { keyPc: number; notes: number[]; velocity: number; label: string; ch: number }
 
 const LOOKAHEAD_MS = 120;
 const TICK_MS = 25;
@@ -41,6 +46,8 @@ export class Controller {
   bpm = 118;
   clockOut = true;
   euclidOn = false;
+  /** CHORDS: each key plays a chord. NOTES: each key plays one note snapped to the scale. */
+  playMode: PlayMode = 'chords';
   pattern: Pattern = { ...GROOVES[2].pattern };
 
   /* ---------- derived ---------- */
@@ -67,7 +74,7 @@ export class Controller {
   readonly midi: MidiBridge;
   readonly synth = new Synth();
 
-  private held = new Map<string, { keyPc: number; notes: number[]; velocity: number; label: string }>();
+  private held = new Map<string, Held>();
   private lastNotes: number[] | null = null;
   private active = new Map<string, Out>(); // scheduled/playing outputs by id
   private running = false;
@@ -125,6 +132,17 @@ export class Controller {
   /* ================= live playing ================= */
   keyDown(src: string, keyMidi: number, velocity = 100) {
     this.synth.unlock();
+    if (this.playMode === 'notes') {
+      const note = snapToScale(keyMidi, this.scale);
+      const keyPc = ((keyMidi % 12) + 12) % 12;
+      const label = scaleNoteLabel(note, this.scale);
+      this.held.delete(src);
+      this.held.set(src, { keyPc, notes: [note], velocity, label, ch: NOTE_CH });
+      if (this.euclidOn) this.ensureTransport();
+      else this.emitOn(`live:${src}`, [note], velocity, keyPc, label, 'live', undefined, NOTE_CH);
+      this.notify();
+      return;
+    }
     const hit = chordForKey(keyMidi, this.scale, this.map);
     const notes = voiceLead(hit.slot.chord, hit.rootMidi, this.smooth ? this.lastNotes : null, {
       inversion: this.inversion, spread: this.spread,
@@ -134,7 +152,7 @@ export class Controller {
     this.current = { slot: hit.slot, notes, keyPc };
     this.hints = suggestNext(this.scale, this.map, keyPc, this.style);
     this.held.delete(src); // re-insert so it becomes the most recent
-    this.held.set(src, { keyPc, notes, velocity, label: hit.slot.chord.symbol });
+    this.held.set(src, { keyPc, notes, velocity, label: hit.slot.chord.symbol, ch: CHORD_CH });
     if (this.euclidOn) this.ensureTransport();
     else this.emitOn(`live:${src}`, notes, velocity, keyPc, hit.slot.chord.symbol, 'live');
     this.notify();
@@ -148,7 +166,7 @@ export class Controller {
 
   /** The chord Euclidean mode plays: the most recently pressed key still held. */
   private get euclidChord() {
-    let last: { keyPc: number; notes: number[]; velocity: number; label: string } | undefined;
+    let last: Held | undefined;
     for (const h of this.held.values()) last = h;
     return last;
   }
@@ -168,9 +186,21 @@ export class Controller {
   }
   setPattern(p: Pattern) { this.pattern = p; this.notify(); }
 
+  /* ================= chords / notes ================= */
+  setPlayMode(m: PlayMode) {
+    if (m === this.playMode) return;
+    for (const src of this.held.keys()) this.emitOff(`live:${src}`);
+    this.stopOutputs('euclid');
+    this.held.clear();
+    if (this.rec !== 'idle') { if (this.rec === 'recording') this.finishRecording(); else this.rec = 'idle'; }
+    this.playMode = m;
+    this.notify();
+  }
+
   /* ================= recording ================= */
   pressRecord() {
     if (this.rec === 'idle') {
+      if (this.playMode === 'notes') return; // the loop records chords
       this.stop();
       this.rec = 'armed';
       this.recEvents = [];
@@ -304,14 +334,14 @@ export class Controller {
   }
 
   /* ================= output funnel ================= */
-  private emitOn(id: string, notes: number[], velocity: number, keyPc: number, label: string, source: Source, at?: number) {
+  private emitOn(id: string, notes: number[], velocity: number, keyPc: number, label: string, source: Source, at?: number, ch = CHORD_CH) {
     if (this.active.has(id)) this.emitOff(id, at);
-    const out: Out = { notes, keyPc, source, label };
+    const out: Out = { notes, keyPc, source, label, ch };
     this.active.set(id, out);
     this.synth.on(id, notes, velocity, at);
-    for (const n of notes) this.midi.send(n, velocity, 0, at);
+    for (const n of notes) this.midi.send(n, velocity, ch, at);
     const t = at ?? performance.now();
-    if (source !== 'loop') {
+    if (source !== 'loop' && ch === CHORD_CH) { // the loop records chords; notes go straight to Ableton
       if (this.rec === 'armed') { this.rec = 'recording'; this.recT0 = t; this.notify(); }
       if (this.rec === 'recording') this.recOpen.set(id, { startMs: t - this.recT0, lengthMs: 0, notes, velocity, keyPc, label });
     }
@@ -323,7 +353,7 @@ export class Controller {
     if (!out) return;
     this.active.delete(id);
     this.synth.off(id, at);
-    for (const n of out.notes) this.midi.release(n, 0, at);
+    for (const n of out.notes) this.midi.release(n, out.ch, at);
     const t = at ?? performance.now();
     const open = this.recOpen.get(id);
     if (open) {
@@ -335,7 +365,7 @@ export class Controller {
   }
 
   private showLoopChord(out: Out) {
-    if (this.held.size) return; // live playing wins
+    if ([...this.held.values()].some((h) => h.ch === CHORD_CH)) return; // live chords win
     const slot = this.map[out.keyPc];
     this.current = { slot, notes: out.notes, keyPc: out.keyPc };
     this.hints = suggestNext(this.scale, this.map, out.keyPc, this.style);
@@ -426,7 +456,7 @@ export class Controller {
           jobs.push({ t: tOn, order: 2, run: () => {
             const chord = this.euclidChord;
             if (!chord) return;
-            this.emitOn(id, chord.notes, chord.velocity, chord.keyPc, chord.label, 'euclid', tOn);
+            this.emitOn(id, chord.notes, chord.velocity, chord.keyPc, chord.label, 'euclid', tOn, chord.ch);
             this.emitOffAt(id, tOff);
           } });
         });

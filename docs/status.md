@@ -53,6 +53,9 @@
 - Layout v4 (Diego): no rings or pills. One control language: terminal text, dashed underline = pressable, hover/focus/on = inverse video. LOOP gets **LENGTH** (AUTO · 1 · 2 · 4 · 8 · 16 bars; longer repeats the take, shorter cuts it) and **QUANTIZE** (1/16 default · 1/8 · 1/4 · OFF) under its trace. Euclidean = [OFF|ON]. Readout: slim TEMPO line on top, big KEY | SCALE, options, NOW/NEXT/ODDS; roomier SCOPE ([ ] marks good next chords).
 - Takes keep the raw recording; quantize + length are applied on top, so both can be changed any time without losing what you played. 357 tests.
 
+- Layout v5 (Diego): removed NOW / NEXT / ODDS and the "from your playing" label; bigger KEY | SCALE; loop trace stretches to fill its height so both traces sit the same distance under their controls; roomier scope.
+- **KEYS PLAY [CHORDS | NOTES]** (above the scope). NOTES works like Ableton's Scale device: every key (black and white) plays its real pitch, and keys outside the scale snap to the nearest scale note (ties go down), so some repeat. Chords go out on **MIDI Ch 1**, notes on **Ch 2**, so a chord track and a melody/bass track in Ableton can both stay armed (MIDI From: IAC, Ch. 1 / Ch. 2). The loop keeps playing chords while you play notes; [ ] on the scope marks notes that are in the chord playing. REC records chords only (notes are recorded in Ableton). Euclidean plays held notes too. `engine/notemode.ts`, 361 tests.
+
 ## Next
 1. **Diego listens:** presets, Generate (Pop vs Bach, Tension, Color), hints, Smooth on/off. What sounds great, what doesn't.
 2. **Phase 8–9: Euclidean rhythm + harmonic sequencer.** Rhythm patterns applied to the progression (chords, bass, arps). Sync tempo to Ableton later.

@@ -60,7 +60,7 @@
 
   /* sections: the control sits on top of what it controls */
   .sec { display: flex; flex-direction: column; gap: 6px; }
-  .sec + .sec { margin-top: 18px; }
+  .sec + .sec { margin-top: 30px; }
   .sec-head { display: flex; align-items: center; gap: 12px; min-height: 30px; }
   .sec-title { font: 500 14px/1 var(--cond); letter-spacing: .18em; text-shadow: var(--glow); }
   .note { font: 400 12px/1 var(--mono); letter-spacing: .06em; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; text-shadow: var(--glow); }
@@ -82,11 +82,11 @@
   .r-row.r2 { grid-template-columns: .75fr 1.25fr; }
   .r-row.r3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, .75fr); }
   .r-row.r4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .r-cell { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 9px; min-width: 0; text-align: left; }
+  .r-cell { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 10px 10px 12px; min-width: 0; text-align: left; }
   .r-cell + .r-cell { border-left: 1.5px solid var(--p); }
   .lbl { font: 500 11px/1 var(--cond); letter-spacing: .16em; opacity: .85; text-shadow: var(--glow); }
-  .r-val { font: 300 36px/1 var(--cond); letter-spacing: .04em; text-shadow: var(--glow); text-align: center; flex-grow: 1; white-space: nowrap; }
-  .stepper-big { display: flex; align-items: center; gap: 2px; }
+  .r-val { font: 300 48px/1 var(--cond); letter-spacing: .04em; text-shadow: var(--glow); text-align: center; flex-grow: 1; white-space: nowrap; }
+  .stepper-big { display: flex; align-items: center; gap: 2px; min-height: 62px; }
   .stepper-big .t.arr { font-size: 14px; padding: 8px 7px; }
 
   .tempo-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; }
@@ -102,7 +102,8 @@
   .cell-sub { font: 400 11px/1 var(--mono); opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: var(--glow); }
 
   .scope { position: relative; flex-grow: 1; }
-  .scope svg { position: absolute; left: 0; top: 20px; overflow: visible; filter: var(--svg-glow); }
+  .scope { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+  .scope svg { position: absolute; left: 0; top: 64px; overflow: visible; filter: var(--svg-glow); }
   .node { position: absolute; width: 74px; height: 34px; margin: -17px 0 0 -37px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font: 400 14px/1 var(--cond); letter-spacing: .03em; text-shadow: var(--glow); opacity: .55; touch-action: none; user-select: none; -webkit-user-select: none; }
   .node small { font: 400 9px/1 var(--mono); opacity: .8; }
   .node:hover, .node:focus-visible { opacity: 1; outline: 0; text-decoration: underline dashed; text-underline-offset: 3px; }
@@ -113,6 +114,7 @@
   .node.cur { opacity: .25; }
   .node.lit { opacity: 1; background: var(--p); color: var(--bg); text-shadow: none; box-shadow: 0 0 18px var(--p); }
   .node.black { font-size: 13px; }
+  .node.sm { width: 48px; margin-left: -24px; font-size: 16px; }
   .node.black:not(.hint):not(.lit):not(:hover) { opacity: .4; }
 
   /* overlays */
@@ -163,7 +165,7 @@
                 <span class="note" id="loop-note"></span>
               </div>
               <div class="trace" id="loop-trace">
-                <svg id="loop-svg" width="640" height="164" viewBox="0 0 640 164"></svg>
+                <svg id="loop-svg" width="640" height="170" viewBox="0 0 640 170"></svg>
                 <div class="sweep" id="loop-dot"></div>
               </div>
               <div class="settings" id="loop-set">
@@ -183,7 +185,7 @@
                 <span class="note" id="eu-note"></span>
               </div>
               <div class="trace" id="eu-trace">
-                <svg id="eu-svg" width="640" height="96" viewBox="0 0 640 96"></svg>
+                <svg id="eu-svg" width="640" height="110" viewBox="0 0 640 110"></svg>
                 <div class="sweep" id="eu-dot"></div>
               </div>
               <div class="settings dim" id="eu-ctl">
@@ -205,7 +207,7 @@
                   <span class="lbl">TEMPO</span>
                   <input class="bpm" id="bpm" type="number" min="40" max="240" step="1" aria-label="Tempo in BPM">
                   <span class="lbl">BPM</span>
-                  <span class="note" id="tempo-src" style="flex-grow:1"></span>
+                  <span style="flex-grow:1"></span>
                   <button class="t" id="half" type="button" title="Half-time reading">÷2</button>
                   <button class="t" id="dbl" type="button" title="Double-time reading">×2</button>
                 </div>
@@ -228,15 +230,13 @@
                 <button class="r-cell" id="opt-spread" type="button" title="How spread out the notes are"><span class="lbl">SPREAD</span><span class="opt-val" id="spread"></span></button>
                 <button class="r-cell" id="opt-inv" type="button" title="Which chord note is lowest"><span class="lbl">INVERT</span><span class="opt-val" id="inv"></span></button>
               </div>
-              <!-- now / next / odds -->
-              <div class="r-row r3">
-                <div class="r-cell"><span class="lbl">NOW</span><span class="cell-val" id="now">—</span><span class="cell-sub" id="now-sub">play a key</span></div>
-                <div class="r-cell"><span class="lbl">NEXT</span><span class="cell-val" id="next">—</span><span class="cell-sub" id="next-sub"></span></div>
-                <div class="r-cell"><span class="lbl">ODDS</span><span class="cell-val" id="odds">—</span><span class="cell-sub" id="odds-sub"></span></div>
-              </div>
             </div>
             <div class="scope">
-              <span class="lbl">SCOPE · TAP OR HOLD A CHORD · [ ] = GOOD NEXT</span>
+              <div class="sec-head">
+                <span class="seg" role="radiogroup" aria-label="What the keys play"><span class="bracket" aria-hidden="true">[</span><button class="t big" id="mode-chords" type="button" role="radio" aria-checked="true">CHORDS</button><button class="t big" id="mode-notes" type="button" role="radio" aria-checked="false">NOTES</button><span class="bracket" aria-hidden="true">]</span></span>
+                <span class="sec-title">KEYS PLAY</span>
+              </div>
+              <span class="note" id="scope-note" style="height:14px"></span>
               <svg id="scope-svg" width="394" height="250" viewBox="0 0 394 250"></svg>
               <div id="scope-nodes"></div>
             </div>
@@ -256,7 +256,8 @@
         <ol>
           <li>Audio MIDI Setup → Window → Show MIDI Studio → IAC Driver → Device is online.</li>
           <li>Ableton → Settings → Link, Tempo &amp; MIDI: IAC Driver input: Track on, Sync on. Set tempo to EXT.</li>
-          <li>Instrument track: MIDI From = IAC Driver (Bus 1), Monitor = In.</li>
+          <li>Chord track: MIDI From = IAC Driver (Bus 1), <b>Ch. 1</b>, Monitor = In.</li>
+          <li>Melody / bass track (KEYS PLAY → NOTES): MIDI From = IAC Driver (Bus 1), <b>Ch. 2</b>. Both tracks can stay armed: each only hears its own channel.</li>
         </ol>
       </div>
 

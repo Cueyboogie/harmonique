@@ -10,7 +10,7 @@
  */
 import {
   SCALES, CHORD_SIZES, SPREADS, PRESETS, GROOVES, RATES, BLACK_PCS, noteLabel,
-  patternSteps, grooveName, QUANTIZES, type Pattern, type ScaleId, type Quantize,
+  patternSteps, grooveName, QUANTIZES, noteKeyMap, type Pattern, type ScaleId, type Quantize,
 } from '../../engine';
 import type { Controller } from '../controller';
 
@@ -23,9 +23,9 @@ const PHOSPHORS = [
   { name: 'CREAM', p: '#EEE0CB', bg: '#12100C' },
 ];
 const GATES = [0.25, 0.5, 0.8, 1];
-const LOOP = { w: 640, h: 164, base: 148 };
-const EU = { w: 640, h: 96, base: 68 };
-const SCOPE = { cx: 197, cy: 122, r: 102 };
+const LOOP = { w: 640, h: 170, base: 154 };
+const EU = { w: 640, h: 110, base: 82 };
+const SCOPE = { cx: 197, cy: 112, r: 104, top: 64 };
 const BAR_CHOICES: ('auto' | number)[] = ['auto', 1, 2, 4, 8, 16];
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -54,7 +54,13 @@ export function mountMonitor(c: Controller) {
   }
 
   /* ---------- geometry helpers ---------- */
-  const levelOf = (keyPc: number | undefined) => (keyPc === undefined ? LOOP.base : 140 - (keyPc / 11) * 88);
+  // The loop's chord levels stretch to fill the trace, whatever keys the take uses.
+  let lvRange = { lo: 0, hi: 11 };
+  const levelOf = (keyPc: number | undefined) => {
+    if (keyPc === undefined) return LOOP.base;
+    const span = lvRange.hi - lvRange.lo;
+    return span ? 146 - ((keyPc - lvRange.lo) / span) * 110 : 91;
+  };
   const scopePos = (pc: number) => {
     const a = ((pc * 30 - 90) * Math.PI) / 180;
     return { x: SCOPE.cx + SCOPE.r * Math.cos(a), y: SCOPE.cy + SCOPE.r * Math.sin(a) };
@@ -98,6 +104,8 @@ export function mountMonitor(c: Controller) {
       svg.innerHTML = `<path d="M0 ${LOOP.base} L${LOOP.w} ${LOOP.base}" stroke="var(--p)" stroke-width="2" stroke-opacity=".5" stroke-dasharray="${c.rec === 'idle' ? '4 6' : '0'}" fill="none"/>`;
       return;
     }
+    const pcs = t.events.map((e) => e.keyPc ?? 0);
+    lvRange = { lo: Math.min(...pcs), hi: Math.max(...pcs) };
     const W = LOOP.w;
     const x = (b: number) => (b / t.beats) * W;
     let d = `M0 ${LOOP.base}`;
@@ -125,7 +133,7 @@ export function mountMonitor(c: Controller) {
     let d = `M0 ${b}`;
     steps.forEach((on, i) => {
       const x0 = i * cw;
-      if (on) d += ` L${(x0 + cw * 0.18).toFixed(1)} ${b} L${(x0 + cw * 0.28).toFixed(1)} ${b + 8} L${(x0 + cw * 0.42).toFixed(1)} ${b - 54} L${(x0 + cw * 0.56).toFixed(1)} ${b + 14} L${(x0 + cw * 0.68).toFixed(1)} ${b}`;
+      if (on) d += ` L${(x0 + cw * 0.18).toFixed(1)} ${b} L${(x0 + cw * 0.28).toFixed(1)} ${b + 8} L${(x0 + cw * 0.42).toFixed(1)} ${14} L${(x0 + cw * 0.56).toFixed(1)} ${b + 14} L${(x0 + cw * 0.68).toFixed(1)} ${b}`;
       d += ` L${(x0 + cw).toFixed(1)} ${b}`;
     });
     const ticks = steps.map((on, i) => `<rect data-step="${i}" x="${(i * cw + 2).toFixed(1)}" y="${EU.h - 6}" width="${(cw - 4).toFixed(1)}" height="6" rx="1.5" fill="var(--p)" fill-opacity="${on ? 1 : 0.22}" style="cursor:pointer"/>`).join('');
@@ -154,6 +162,8 @@ export function mountMonitor(c: Controller) {
     rec.setAttribute('aria-label', c.rec === 'idle' ? 'Record' : c.rec === 'armed' ? 'Cancel recording' : 'Stop recording');
     const play = $<HTMLButtonElement>('play');
     play.disabled = !c.take;
+    (rec as HTMLButtonElement).disabled = c.playMode === 'notes';
+    rec.title = c.playMode === 'notes' ? 'The loop records chords. Switch KEYS PLAY to CHORDS to record.' : '';
     play.classList.toggle('on', c.playing);
     $('play-label').textContent = c.playing ? '■ STOP' : '▶ PLAY';
     ($('ideas') as HTMLButtonElement).disabled = false;
@@ -165,39 +175,45 @@ export function mountMonitor(c: Controller) {
   function renderTempo() {
     const bpm = $<HTMLInputElement>('bpm');
     if (document.activeElement !== bpm) bpm.value = String(Math.round(c.bpm));
-    const detected = c.take?.tempoSource === 'detected';
-    $('tempo-src').textContent = detected ? 'FROM YOUR PLAYING' : c.clockOut ? 'ABLETON FOLLOWS' : '';
     $('half').hidden = $('dbl').hidden = !c.take;
-    const cur = c.current;
-    const next = c.hints.find((h) => h.kind === 'likely');
-    $('now').textContent = cur ? cur.slot.chord.symbol : '—';
-    $('now-sub').textContent = cur ? `${cur.slot.chord.roman} · ${KEY_NAMES[cur.keyPc]} KEY` : 'PLAY A KEY';
-    $('next').textContent = next && cur ? c.map[next.keyPc].chord.symbol : '—';
-    $('next-sub').textContent = next && cur ? `${KEY_NAMES[next.keyPc]} KEY` : '';
-    $('odds').textContent = next && cur ? `${Math.round(next.weight * 100)}%` : '—';
-    $('odds-sub').textContent = next && cur ? (c.style === 'bach' ? 'BACH' : 'POP') : '';
   }
 
   function renderScope() {
+    const notes = c.playMode === 'notes';
+    $('mode-chords').setAttribute('aria-checked', String(!notes));
+    $('mode-notes').setAttribute('aria-checked', String(notes));
+    $('scope-note').textContent = notes
+      ? `EVERY KEY IN ${up(c.keyName)} · CH 2 · [ ] = IN THE CHORD`
+      : 'TAP OR HOLD A CHORD · CH 1 · [ ] = GOOD NEXT';
     const cur = c.current?.keyPc;
     const lit = new Set<number>();
-    for (const o of c.sounding.values()) lit.add(o.keyPc);
+    for (const o of c.sounding.values()) if ((o.ch === 1) === notes) lit.add(o.keyPc);
     const hint = new Map<number, number>();
-    if (cur !== undefined) c.hints.forEach((h) => { if (h.kind === 'likely') hint.set(h.keyPc, h.weight); });
-    const lines = [...hint.entries()].map(([pc, w]) => {
+    const noteMap = noteKeyMap(c.scale);
+    if (notes) {
+      const tones = c.current?.slot.chord.pitchClasses ?? [];
+      noteMap.forEach((k) => { if (tones.includes(k.pc)) hint.set(k.keyPc, 0); });
+    } else if (cur !== undefined) c.hints.forEach((h) => { if (h.kind === 'likely') hint.set(h.keyPc, h.weight); });
+    const lines = notes ? '' : [...hint.entries()].map(([pc, w]) => {
       const q = scopePos(pc);
       return `<line x1="${SCOPE.cx}" y1="${SCOPE.cy}" x2="${q.x.toFixed(1)}" y2="${q.y.toFixed(1)}" stroke="var(--p)" stroke-width="${(1 + w * 6).toFixed(1)}" stroke-opacity="${(0.35 + w).toFixed(2)}"/>`;
     }).join('');
-    const center = c.current ? esc(c.current.slot.chord.symbol) : '';
+    let center = c.current ? esc(c.current.slot.chord.symbol) : '';
+    if (notes) { const last = [...c.sounding.values()].reverse().find((o) => o.ch === 1); if (last) center = esc(last.label); }
     $('scope-svg').innerHTML = `<circle cx="${SCOPE.cx}" cy="${SCOPE.cy}" r="${SCOPE.r}" fill="none" stroke="var(--p)" stroke-opacity=".35" stroke-dasharray="2 5"/>
       <line x1="${SCOPE.cx - SCOPE.r}" y1="${SCOPE.cy}" x2="${SCOPE.cx + SCOPE.r}" y2="${SCOPE.cy}" stroke="var(--p)" stroke-opacity=".16"/>
       <line x1="${SCOPE.cx}" y1="${SCOPE.cy - SCOPE.r}" x2="${SCOPE.cx}" y2="${SCOPE.cy + SCOPE.r}" stroke="var(--p)" stroke-opacity=".16"/>
-      ${lines}<circle cx="${SCOPE.cx}" cy="${SCOPE.cy}" r="38" fill="var(--bg)" stroke="var(--p)" stroke-width="2"/>
-      <text x="${SCOPE.cx}" y="${SCOPE.cy + 6}" text-anchor="middle" fill="var(--p)" style="font:500 16px var(--cond)">${center}</text>`;
+      ${lines}<circle cx="${SCOPE.cx}" cy="${SCOPE.cy}" r="40" fill="var(--bg)" stroke="var(--p)" stroke-width="2"/>
+      <text x="${SCOPE.cx}" y="${SCOPE.cy + 6}" text-anchor="middle" fill="var(--p)" style="font:500 17px var(--cond)">${center}</text>`;
     $('scope-nodes').innerHTML = c.map.map((slot) => {
-      const q = scopePos(slot.keyPc);
-      const cls = ['node', BLACK_PCS.includes(slot.keyPc) ? 'black' : '', hint.has(slot.keyPc) ? 'hint' : '', lit.has(slot.keyPc) ? 'lit' : '', slot.keyPc === cur ? 'cur' : ''].join(' ');
-      return `<button type="button" class="${cls}" data-key="${slot.keyPc}" style="left:${q.x.toFixed(1)}px;top:${(q.y + 20).toFixed(1)}px" aria-label="${esc(slot.chord.symbol)}, key ${KEY_NAMES[slot.keyPc]}">${esc(slot.chord.symbol)}<small>${KEY_NAMES[slot.keyPc]}</small></button>`;
+      const k = slot.keyPc;
+      const q = scopePos(k);
+      const nk = noteMap[k];
+      const dimKey = notes ? !nk.inScale : BLACK_PCS.includes(k);
+      const cls = ['node', notes ? 'sm' : '', dimKey ? 'black' : '', hint.has(k) ? 'hint' : '', lit.has(k) ? 'lit' : '', !notes && k === cur ? 'cur' : ''].join(' ');
+      const main = notes ? nk.label : slot.chord.symbol;
+      const aria = notes ? `${nk.label}, key ${KEY_NAMES[k]}` : `${slot.chord.symbol}, key ${KEY_NAMES[k]}`;
+      return `<button type="button" class="${cls}" data-key="${k}" style="left:${q.x.toFixed(1)}px;top:${(q.y + SCOPE.top).toFixed(1)}px" aria-label="${esc(aria)}">${esc(main)}<small>${KEY_NAMES[k]}</small></button>`;
     }).join('');
   }
 
@@ -291,6 +307,8 @@ export function mountMonitor(c: Controller) {
   $('groove-next').onclick = () => stepGroove(1);
   $('eu-on').onclick = () => { c.synth.unlock(); c.setEuclid(true); };
   $('eu-off').onclick = () => c.setEuclid(false);
+  $('mode-chords').onclick = () => c.setPlayMode('chords');
+  $('mode-notes').onclick = () => c.setPlayMode('notes');
   const stepBars = (d: number) => {
     // From AUTO, move to the nearest length above/below what was played; past either end, back to AUTO.
     const nums = BAR_CHOICES.filter((x): x is number => x !== 'auto');
