@@ -244,7 +244,7 @@ export class Controller {
     const events = this.recEvents.sort((a, b) => a.startMs - b.startMs);
     if (!events.length) return;
     const fixed = this.euclidOn || this.tempoLocked || this.hostZero !== null;
-    let take = takeFromRecording(events, now - this.recT0, fixed ? this.bpm : undefined);
+    let take = takeFromRecording(events, now - this.recT0, fixed ? this.bpm : undefined, this.bpm);
     if (!fixed) take = { ...take, bpm: Math.round(take.bpm) }; // a clean whole-number tempo for the DAW (≤0.5% change)
     this.loopOffset = this.hostZero !== null ? Math.round(((this.recT0 - this.hostZero) * this.bpm) / 60000) : 0;
     this.rawTake = take;

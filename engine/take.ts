@@ -96,33 +96,67 @@ export function detectTempo(onsetsMs: number[], durationMs: number, min = 70, ma
 }
 
 /**
- * Turn a recording into a take.
- * `fixedBpm`: the tempo that was running (e.g. Euclidean mode on); otherwise it's detected.
+ * Capture-style tempo: read the tempo from WHEN the chords change, never from when STOP was pressed.
+ * Tries every tempo in range, snaps each change to that tempo's 16th grid, refines the beat by least
+ * squares, and scores: how close the changes sit to the grid (ms), how musical their positions are
+ * (on a bar line best, then half bar, beat, 8th, 16th), and a gentle pull towards ~110 BPM.
+ * `onsetsMs` are measured from the first chord (the first chord is the downbeat).
  */
-export function takeFromRecording(raw: RawEvent[], durationMs: number, fixedBpm?: number): Take {
-  let bpm: number;
-  let bars: number;
-  if (fixedBpm) {
-    bpm = fixedBpm;
-    bars = Math.max(1, Math.round(durationMs / ((60000 / bpm) * 4)));
-  } else {
-    const t = detectTempo(raw.map((e) => e.startMs), durationMs);
-    bpm = t.bpm;
-    bars = t.bars;
+export function captureTempo(onsetsMs: number[], fallbackBpm = 110, min = 70, max = 170): { bpm: number; confident: boolean } {
+  const on = [...new Set(onsetsMs.map((t) => Math.round(t)))].filter((t) => t > 90).sort((a, b) => a - b);
+  if (!on.length) return { bpm: fallbackBpm, confident: false };
+  const posCost = (k: number) => {
+    const p = ((k % 4) + 4) % 4;
+    if (p === 0) return 0;
+    if (p === 2) return 0.25;
+    if (Number.isInteger(p)) return 0.5;
+    if (Number.isInteger(p * 2)) return 0.8;
+    return 1.2;
+  };
+  let best = { bpm: fallbackBpm, score: Infinity };
+  for (let t = min; t <= max; t += 0.25) {
+    const beat0 = 60000 / t;
+    const ks = on.map((x) => Math.max(0.25, Math.round((x / beat0) * 4) / 4));
+    const beat = ks.reduce((s, k, i) => s + k * on[i], 0) / ks.reduce((s, k) => s + k * k, 0);
+    const bpm = 60000 / beat;
+    if (bpm < min * 0.98 || bpm > max * 1.02) continue;
+    const errMs = on.map((x, i) => x - ks[i] * beat);
+    const timing = errMs.reduce((s, e) => s + (e / 35) ** 2, 0) / on.length;
+    const metric = ks.reduce((s, k) => s + posCost(k), 0) / ks.length;
+    const prior = 0.8 * Math.log2(bpm / 110) ** 2;
+    const score = timing + metric + prior;
+    if (score < best.score) best = { bpm, score };
   }
-  // Detected tempo: scale so the loop is exactly `bars` long, keeping the feel of what was played.
-  // Fixed tempo (Live, or Euclidean on): never stretch. The grid is the host's, so times stay exact.
-  const msPerBeat = fixedBpm ? 60000 / fixedBpm : durationMs / (bars * 4);
+  return { bpm: Math.round(best.bpm * 10) / 10, confident: on.length >= 2 };
+}
+
+/**
+ * Turn a recording into a take, like Ableton's Capture:
+ *  - the first chord is beat 1 of bar 1;
+ *  - the tempo comes from the chord changes (or `fixedBpm`: Live playing / Euclidean on);
+ *  - the loop is a whole number of bars, set by your last chord (where it starts and roughly where you let
+ *    go of it), so a late or early STOP never bends the loop.
+ * `fallbackBpm`: used when there's too little to read a tempo from (one chord).
+ */
+export function takeFromRecording(raw: RawEvent[], _durationMs: number, fixedBpm?: number, fallbackBpm = 110): Take {
+  // Detected tempo: your first chord is the downbeat. Fixed tempo: times are already measured from the grid (bar line).
+  const t0 = fixedBpm || !raw.length ? 0 : Math.min(...raw.map((e) => e.startMs));
+  const evs = raw.map((e) => ({ ...e, startMs: e.startMs - t0 }));
+  const bpm = fixedBpm ?? captureTempo(evs.map((e) => e.startMs), fallbackBpm).bpm;
+  const beatMs = 60000 / bpm;
+  const lastOnset = Math.max(0, ...evs.map((e) => e.startMs / beatMs));
+  const lastRelease = Math.max(0, ...evs.map((e) => (e.startMs + e.lengthMs) / beatMs));
+  const bars = Math.max(1, Math.ceil((lastOnset + 0.5) / 4), Math.round((lastRelease - 1) / 4));
   const beats = bars * 4;
-  const events = raw.filter((e) => e.startMs / msPerBeat < bars * 4).map((e) => ({
-    start: e.startMs / msPerBeat,
-    length: Math.max(0.05, Math.min(e.lengthMs / msPerBeat, beats - e.startMs / msPerBeat)),
+  const events = evs.filter((e) => e.startMs / beatMs < beats).map((e) => ({
+    start: e.startMs / beatMs,
+    length: Math.max(0.05, Math.min(e.lengthMs / beatMs, beats - e.startMs / beatMs)),
     notes: e.notes.slice(),
     velocity: e.velocity,
     keyPc: e.keyPc,
     label: e.label,
   }));
-  return { events, beats, bpm: fixedBpm ? bpm : Math.round((60000 / msPerBeat) * 10) / 10, tempoSource: fixedBpm ? 'fixed' : 'detected' };
+  return { events, beats, bpm, tempoSource: fixedBpm ? 'fixed' : 'detected' };
 }
 
 /**

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   euclid, patternSteps, patternHits, toggleStep, cycleBeats, GROOVES, grooveName,
-  detectTempo, takeFromRecording, reinterpret, takeFromChords, takeToMidiEvents, writeMidi, quantizeTake, setLoopBars,
+  detectTempo, captureTempo, takeFromRecording, reinterpret, takeFromChords, takeToMidiEvents, writeMidi, quantizeTake, setLoopBars,
   type Pattern,
 } from '../engine';
 
@@ -172,5 +172,32 @@ describe('fixed tempo (Live owns it): no stretching', () => {
     expect(t.bpm).toBe(118);
     expect(t.beats).toBe(16);
     expect(t.events.map((e) => Math.round(e.start * 1000) / 1000)).toEqual([0, 4, 8, 12]);
+  });
+});
+
+describe('capture: the loop comes from your chords, not from when you press STOP', () => {
+  const b = 60000 / 104;
+  const raw = [0, 4, 8, 12].map((beat, i) => ({ startMs: beat * b + [0, 22, -28, 15][i], lengthMs: 3.8 * b, notes: [60 + i], velocity: 90 }));
+  it('a late or early STOP gives the same tempo and loop', () => {
+    const early = takeFromRecording(raw, 15.9 * b);
+    const late = takeFromRecording(raw, 19.5 * b);
+    expect(early.bpm).toBe(late.bpm);
+    expect(early.beats).toBe(16);
+    expect(late.beats).toBe(16);
+    expect(Math.abs(early.bpm - 104)).toBeLessThan(1.5);
+  });
+  it('the first chord is the downbeat, even if recording started earlier', () => {
+    const shifted = raw.map((e) => ({ ...e, startMs: e.startMs + 700 }));
+    const t = takeFromRecording(shifted, 20 * b);
+    expect(t.events[0].start).toBe(0);
+    expect(t.beats).toBe(16);
+  });
+  it('holding the last chord for two bars makes the loop two bars longer', () => {
+    const held = raw.map((e, i) => (i === 3 ? { ...e, lengthMs: 7.8 * b } : e));
+    expect(takeFromRecording(held, 30 * b).beats).toBe(20);
+  });
+  it('captureTempo reads a chord every bar at 132', () => {
+    const bb = 60000 / 132;
+    expect(Math.abs(captureTempo([0, 4 * bb + 10, 8 * bb - 12, 12 * bb + 5]).bpm - 132)).toBeLessThan(1.5);
   });
 });
