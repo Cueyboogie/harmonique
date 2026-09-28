@@ -70,6 +70,8 @@
 
 - **Voice leading follows your hand (Diego: chords stayed high after moving down the keyboard, and pitch drifted when looping):** SMOOTH now only chooses among voicings within half an octave of where the key you pressed puts the chord, and jumping more than ~an octave starts fresh. A looping progression settles on the same voicings every time around. **VOICING now defaults to FIXED** (a key always plays the same notes); SMOOTH is opt-in. 368 tests.
 
+- **Timing pass (from the portfolio-side review note):** (1) browser synth now maps scheduled times through a smoothed clock offset instead of re-reading `ac.currentTime` per event, so a busy main thread no longer bunches notes (test: 350 ms stall mid-loop, chord spacing stays 2.034 s); compressor (≈6 ms look-ahead) replaced with a soft clip; note tails 0.5 s. (2) UI: animation loop stops when nothing moves; SVG/scope markup only re-written when it changes. (3) **Loops close without dead air:** the loop ends where the phrase would come round (one "last step" after the last chord), and the last chord rings until the loop restarts. Simulation: right length whenever the tempo is right, no dead air, 9 patterns. Synth changes are web-only; loop closing + UI savings apply to the plugin too. 370 tests.
+
 ## Next
 1. **Diego listens:** presets, Generate (Pop vs Bach, Tension, Color), hints, Smooth on/off. What sounds great, what doesn't.
 2. **Phase 8–9: Euclidean rhythm + harmonic sequencer.** Rhythm patterns applied to the progression (chords, bass, arps). Sync tempo to Ableton later.

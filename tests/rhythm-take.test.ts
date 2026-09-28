@@ -201,3 +201,20 @@ describe('capture: the loop comes from your chords, not from when you press STOP
     expect(Math.abs(captureTempo([0, 4 * bb + 10, 8 * bb - 12, 12 * bb + 5]).bpm - 132)).toBeLessThan(1.5);
   });
 });
+
+describe('loops close without dead air', () => {
+  const b = 60000 / 120;
+  it('three chords of half a bar each: no silence before the loop comes round', () => {
+    const raw = [0, 2, 4].map((beat, i) => ({ startMs: beat * b + [0, 12, -15][i], lengthMs: 1.8 * b, notes: [60 + i], velocity: 90 }));
+    const t = takeFromRecording(raw, 9 * b);
+    const last = t.events[t.events.length - 1];
+    expect(last.start + last.length).toBeCloseTo(t.beats, 5);
+  });
+  it('released early (staccato) chords still loop in time; only the last one rings on', () => {
+    const raw = [0, 4, 8, 12].map((beat) => ({ startMs: beat * b, lengthMs: 0.5 * b, notes: [60], velocity: 90 }));
+    const t = takeFromRecording(raw, 20 * b);
+    expect(t.beats).toBe(16);
+    expect(t.events[0].length).toBeLessThan(1);
+    expect(t.events[3].start + t.events[3].length).toBeCloseTo(16, 5);
+  });
+});

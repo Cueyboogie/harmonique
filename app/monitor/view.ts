@@ -31,6 +31,13 @@ const BAR_CHOICES: ('auto' | number)[] = ['auto', 1, 2, 4, 8, 16];
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 const up = (s: string) => s.toUpperCase();
+/** Only touch the DOM when the markup actually changed (re-parsing unchanged SVG/buttons is wasted main-thread time). */
+const htmlCache = new WeakMap<Element, string>();
+function setHTML(el: Element, html: string) {
+  if (htmlCache.get(el) === html) return;
+  htmlCache.set(el, html);
+  el.innerHTML = html;
+}
 
 export type HostMode = 'app' | 'web' | 'live';
 
@@ -112,7 +119,7 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
     $('v-q').textContent = c.quantize === 'off' ? 'OFF' : c.quantize;
     for (const id of ['bars-prev', 'v-bars', 'bars-next']) ($(id) as HTMLButtonElement).disabled = !t || c.rec !== 'idle';
     if (!t || c.rec !== 'idle') {
-      svg.innerHTML = `<path d="M0 ${LOOP.base} L${LOOP.w} ${LOOP.base}" stroke="var(--p)" stroke-width="2" stroke-opacity=".5" stroke-dasharray="${c.rec === 'idle' ? '4 6' : '0'}" fill="none"/>`;
+      setHTML(svg, `<path d="M0 ${LOOP.base} L${LOOP.w} ${LOOP.base}" stroke="var(--p)" stroke-width="2" stroke-opacity=".5" stroke-dasharray="${c.rec === 'idle' ? '4 6' : '0'}" fill="none"/>`);
       return;
     }
     const pcs = t.events.map((e) => e.keyPc ?? 0);
@@ -132,7 +139,7 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
     });
     d += ` L${cursor.toFixed(1)} ${LOOP.base} L${W} ${LOOP.base}`;
     const ticks = Array.from({ length: bars + 1 }, (_, i) => `<line x1="${(i / bars) * W}" y1="${LOOP.h - 6}" x2="${(i / bars) * W}" y2="${LOOP.h + 2}" stroke="var(--p)" stroke-width="1.5"/>`).join('');
-    svg.innerHTML = `<path d="${d}" fill="none" stroke="var(--p)" stroke-width="2" stroke-linejoin="round"/>${labels}${ticks}`;
+    setHTML(svg, `<path d="${d}" fill="none" stroke="var(--p)" stroke-width="2" stroke-linejoin="round"/>${labels}${ticks}`);
   }
 
   function renderEuclid() {
@@ -148,7 +155,7 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
       d += ` L${(x0 + cw).toFixed(1)} ${b}`;
     });
     const ticks = steps.map((on, i) => `<rect data-step="${i}" x="${(i * cw + 2).toFixed(1)}" y="${EU.h - 6}" width="${(cw - 4).toFixed(1)}" height="6" rx="1.5" fill="var(--p)" fill-opacity="${on ? 1 : 0.22}" style="cursor:pointer"/>`).join('');
-    $('eu-svg').innerHTML = `<path d="${d}" fill="none" stroke="var(--p)" stroke-width="2" stroke-linejoin="round" stroke-opacity="${c.euclidOn ? 1 : 0.3}"/>${ticks}`;
+    setHTML($('eu-svg'), `<path d="${d}" fill="none" stroke="var(--p)" stroke-width="2" stroke-linejoin="round" stroke-opacity="${c.euclidOn ? 1 : 0.3}"/>${ticks}`);
     const hits = steps.filter(Boolean).length;
     const name = grooveName(p);
     $('eu-title').textContent = `EUCLIDEAN E(${hits},${n})`;
@@ -212,12 +219,12 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
     }).join('');
     let center = c.current ? esc(c.current.slot.chord.symbol) : '';
     if (notes) { const last = [...c.sounding.values()].reverse().find((o) => o.ch === 1); if (last) center = esc(last.label); }
-    $('scope-svg').innerHTML = `<circle cx="${SCOPE.cx}" cy="${SCOPE.cy}" r="${SCOPE.r}" fill="none" stroke="var(--p)" stroke-opacity=".35" stroke-dasharray="2 5"/>
+    setHTML($('scope-svg'), `<circle cx="${SCOPE.cx}" cy="${SCOPE.cy}" r="${SCOPE.r}" fill="none" stroke="var(--p)" stroke-opacity=".35" stroke-dasharray="2 5"/>
       <line x1="${SCOPE.cx - SCOPE.r}" y1="${SCOPE.cy}" x2="${SCOPE.cx + SCOPE.r}" y2="${SCOPE.cy}" stroke="var(--p)" stroke-opacity=".16"/>
       <line x1="${SCOPE.cx}" y1="${SCOPE.cy - SCOPE.r}" x2="${SCOPE.cx}" y2="${SCOPE.cy + SCOPE.r}" stroke="var(--p)" stroke-opacity=".16"/>
       ${lines}<circle cx="${SCOPE.cx}" cy="${SCOPE.cy}" r="40" fill="var(--bg)" stroke="var(--p)" stroke-width="2"/>
-      <text x="${SCOPE.cx}" y="${SCOPE.cy + 6}" text-anchor="middle" fill="var(--p)" style="font:500 17px var(--cond)">${center}</text>`;
-    $('scope-nodes').innerHTML = c.map.map((slot) => {
+      <text x="${SCOPE.cx}" y="${SCOPE.cy + 6}" text-anchor="middle" fill="var(--p)" style="font:500 17px var(--cond)">${center}</text>`);
+    setHTML($('scope-nodes'), c.map.map((slot) => {
       const k = slot.keyPc;
       const q = scopePos(k);
       const nk = noteMap[k];
@@ -226,7 +233,7 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
       const main = notes ? nk.label : slot.chord.symbol;
       const aria = notes ? `${nk.label}, key ${KEY_NAMES[k]}` : `${slot.chord.symbol}, key ${KEY_NAMES[k]}`;
       return `<button type="button" class="${cls}" data-key="${k}" style="left:${q.x.toFixed(1)}px;top:${(q.y + SCOPE.top).toFixed(1)}px" aria-label="${esc(aria)}">${esc(main)}<small>${KEY_NAMES[k]}</small></button>`;
-    }).join('');
+    }).join(''));
   }
 
   function renderPanels() {
@@ -277,8 +284,12 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
       ed.style.top = `${EU.base}px`;
       ed.style.opacity = '1';
     } else ed.style.opacity = '0';
-    requestAnimationFrame(frame);
+    // Only keep animating while something moves; idle screens cost nothing.
+    if (lp >= 0 || (cp >= 0 && c.euclidOn)) requestAnimationFrame(frame);
+    else animating = false;
   }
+  let animating = false;
+  const animate = () => { if (!animating) { animating = true; requestAnimationFrame(frame); } };
 
   /* ---------- pattern edits ---------- */
   function edit(field: string, delta: number) {
@@ -424,12 +435,12 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
   c.subscribe(() => {
     if (queued) return;
     queued = true;
-    requestAnimationFrame(() => { queued = false; render(); });
+    requestAnimationFrame(() => { queued = false; render(); animate(); });
   });
   applyPhosphor();
   fit();
   render();
-  requestAnimationFrame(frame);
+  animate();
   void c.midi.init().then(() => {
     if (c.midi.outputId && c.synth.enabled) c.synth.enabled = false;
     render();

@@ -130,6 +130,18 @@ export function captureTempo(onsetsMs: number[], fallbackBpm = 110, min = 70, ma
   return { bpm: Math.round(best.bpm * 10) / 10, confident: on.length >= 2 };
 }
 
+/** Where a phrase would loop back to its first chord: as far after the last change as the change before it.
+ *  (Onsets measured from the first chord, ms.) With a single chord: where it was let go. */
+export function phraseEnd(raw: RawEvent[]): number {
+  const on = [...new Set(raw.map((e) => Math.round(e.startMs)))].sort((a, b) => a - b)
+    .filter((t, i, a) => i === 0 || t - a[i - 1] > 90);
+  const last = raw.reduce((m, e) => (e.startMs >= m.startMs ? e : m), raw[0]);
+  const lastRelease = Math.max(...raw.map((e) => e.startMs + e.lengthMs));
+  if (on.length < 2) return lastRelease;
+  // The step into the last chord is the best guess for the step out of it (back to the first).
+  return last.startMs + (on[on.length - 1] - on[on.length - 2]);
+}
+
 /**
  * Turn a recording into a take, like Ableton's Capture:
  *  - the first chord is beat 1 of bar 1;
@@ -142,11 +154,14 @@ export function takeFromRecording(raw: RawEvent[], _durationMs: number, fixedBpm
   // Detected tempo: your first chord is the downbeat. Fixed tempo: times are already measured from the grid (bar line).
   const t0 = fixedBpm || !raw.length ? 0 : Math.min(...raw.map((e) => e.startMs));
   const evs = raw.map((e) => ({ ...e, startMs: e.startMs - t0 }));
+  const endMs = evs.length ? phraseEnd(evs) : 0;
   const bpm = fixedBpm ?? captureTempo(evs.map((e) => e.startMs), fallbackBpm).bpm;
   const beatMs = 60000 / bpm;
   const lastOnset = Math.max(0, ...evs.map((e) => e.startMs / beatMs));
+  // Loop = whole bars, closing at the bar line nearest to where the phrase would come round again.
+  // Holding the last chord longer (about a bar or more) makes the loop longer.
   const lastRelease = Math.max(0, ...evs.map((e) => (e.startMs + e.lengthMs) / beatMs));
-  const bars = Math.max(1, Math.ceil((lastOnset + 0.5) / 4), Math.round((lastRelease - 1) / 4));
+  const bars = Math.max(1, Math.ceil((lastOnset + 0.25) / 4), Math.round(endMs / beatMs / 4), Math.round((lastRelease - 1) / 4));
   const beats = bars * 4;
   const events = evs.filter((e) => e.startMs / beatMs < beats).map((e) => ({
     start: e.startMs / beatMs,
@@ -156,6 +171,12 @@ export function takeFromRecording(raw: RawEvent[], _durationMs: number, fixedBpm
     keyPc: e.keyPc,
     label: e.label,
   }));
+  // Close the loop: no dead air before it comes round. The last chord rings until the loop restarts.
+  const lastEv = events.reduce<(typeof events)[number] | null>((m, e) => (!m || e.start >= m.start ? e : m), null);
+  if (lastEv) {
+    const gap = beats - (lastEv.start + lastEv.length);
+    if (gap > 0 && gap <= 4) lastEv.length = beats - lastEv.start;
+  }
   return { events, beats, bpm, tempoSource: fixedBpm ? 'fixed' : 'detected' };
 }
 

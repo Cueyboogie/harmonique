@@ -1,20 +1,30 @@
 /**
  * Tiny preview synth. Every chord is a "voice group" with an id, so a scheduled
  * note-off can never cut a newer chord that happens to share notes.
- * Times are performance.now() milliseconds, converted to the audio clock.
+ * Times are performance.now() milliseconds (the same clock Web MIDI uses), converted to the
+ * audio clock through a steady, smoothed mapping. Reading ac.currentTime on every event is
+ * jittery (it only moves once per audio block and can be stale on the main thread), which made
+ * scheduled notes wobble or bunch up after a busy moment; a fixed mapping keeps their spacing.
  */
 export class Synth {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
   private groups = new Map<string, { osc: OscillatorNode[]; gains: GainNode[] }>();
+  /** performance.now()/1000 − audio time, smoothed. null until measured. */
+  private offset: number | null = null;
   enabled = true;
 
   private audio() {
     if (!this.ctx) {
-      this.ctx = new AudioContext();
+      this.ctx = new AudioContext({ latencyHint: 'interactive' });
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.18;
-      this.master.connect(this.ctx.createDynamicsCompressor()).connect(this.ctx.destination);
+      this.master.gain.value = 0.2;
+      // Soft clip instead of a compressor: a compressor adds ~6 ms of look-ahead delay to every note.
+      const clip = this.ctx.createWaveShaper();
+      const curve = new Float32Array(1025);
+      for (let i = 0; i < curve.length; i++) { const x = (i / 512) - 1; curve[i] = Math.tanh(1.5 * x) / Math.tanh(1.5); }
+      clip.curve = curve;
+      this.master.connect(clip).connect(this.ctx.destination);
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
     return this.ctx;
@@ -23,10 +33,22 @@ export class Synth {
   /** Call from a click/keypress so the browser allows sound. */
   unlock() { this.audio(); }
 
+  /** Keep a smoothed performance.now() ↔ audio-clock mapping. */
+  private syncClock(ac: AudioContext) {
+    // ac.currentTime only advances once per audio block, so each reading is a little stale;
+    // average the readings instead of trusting any single one.
+    const cand = performance.now() / 1000 - ac.currentTime;
+    if (this.offset === null || Math.abs(cand - this.offset) > 0.05) this.offset = cand; // first reading, or the context was resumed
+    else this.offset += (cand - this.offset) * 0.05;
+    return this.offset;
+  }
+
   private toCtx(at?: number) {
     const ac = this.audio();
-    if (at === undefined) return ac.currentTime;
-    return Math.max(ac.currentTime, ac.currentTime + (at - performance.now()) / 1000);
+    const offset = this.syncClock(ac);
+    if (at === undefined) return ac.currentTime; // live key: as soon as possible
+    const t = at / 1000 - offset;
+    return t > ac.currentTime ? t : ac.currentTime; // only a stall longer than the look-ahead lands here
   }
 
   on(id: string, notes: number[], velocity: number, at?: number) {
@@ -69,9 +91,9 @@ export class Synth {
     const t = this.toCtx(at);
     for (const g of grp.gains) {
       g.gain.cancelScheduledValues(t);
-      g.gain.setTargetAtTime(0.0001, t, 0.12);
+      g.gain.setTargetAtTime(0.0001, t, 0.1);
     }
-    grp.osc.forEach((o) => o.stop(t + 0.7));
+    grp.osc.forEach((o) => o.stop(t + 0.5)); // ~5 time constants: silent by then, fewer live voices
   }
 
   allOff() {
