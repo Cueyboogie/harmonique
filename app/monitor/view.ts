@@ -34,7 +34,7 @@ const up = (s: string) => s.toUpperCase();
 
 export type HostMode = 'app' | 'web' | 'live';
 
-export function mountMonitor(c: Controller, opts: { mode?: HostMode } = {}) {
+export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: string } = {}) {
   const mode: HostMode = opts.mode ?? 'app';
   let kbOctave = 4;
   let phos = 0;
@@ -345,6 +345,11 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode } = {}) {
   $('st-phos').onclick = () => { phos = (phos + 1) % PHOSPHORS.length; applyPhosphor(); };
   const openPanel = (id: string) => { for (const pid of ['panel-midi', 'panel-ideas']) $(pid).hidden = pid !== id || !$(pid).hidden; };
   $('st-midi').onclick = () => { if (mode !== 'live') openPanel('panel-midi'); };
+  if (opts.exitHref) {
+    const ex = $<HTMLAnchorElement>('exit');
+    ex.href = opts.exitHref;
+    ex.hidden = false;
+  }
   if (mode === 'web') {
     $('panel-intro').hidden = false;
     $('intro-go').onclick = () => { c.synth.unlock(); $('panel-intro').hidden = true; };

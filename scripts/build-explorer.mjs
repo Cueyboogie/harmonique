@@ -33,7 +33,15 @@ writeFileSync('dist/local/explorer.html', standalone(explorer));
 // Portfolio / public web version: sound on, a short how-to on open, no Ableton sync.
 mkdirSync('dist/web', { recursive: true });
 const web = await bundle('app/web/main.ts', 'app/monitor/template.html');
+writeFileSync('dist/harmonique-web.html', web);
 writeFileSync('dist/web/index.html', standalone(web).replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<meta name="description" content="Harmonique: a chord instrument you can play in your browser.">'));
+
+// Portfolio page: theavidobserver.com/side-quests/harmonique/ (web version + round × back to the grid)
+mkdirSync('dist/portfolio/side-quests/harmonique', { recursive: true });
+const folio = await bundle('app/portfolio/main.ts', 'app/monitor/template.html');
+writeFileSync('dist/portfolio/side-quests/harmonique/index.html', standalone(folio)
+  .replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<meta name="description" content="Harmonique: a chord instrument by Diego Cuevas. Play it with your computer keys.">')
+  .replace('<title>Harmonique</title>', '<title>Harmonique — a chord instrument</title>'));
 
 // Max for Live device: the page (loaded by the device's [jweb]) + the .amxd.
 // The device points at the page's absolute path on Diego's Mac (override with HARMONIQUE_ROOT).
