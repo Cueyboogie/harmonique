@@ -68,6 +68,8 @@
 
 - **Quantize now OFF by default (Diego):** takes play back exactly as played, errors included, like Ableton's Capture; fix details in Live. 1/16, 1/8, 1/4 still one click away.
 
+- **Voice leading follows your hand (Diego: chords stayed high after moving down the keyboard, and pitch drifted when looping):** SMOOTH now only chooses among voicings within half an octave of where the key you pressed puts the chord, and jumping more than ~an octave starts fresh. A looping progression settles on the same voicings every time around. **VOICING now defaults to FIXED** (a key always plays the same notes); SMOOTH is opt-in. 368 tests.
+
 ## Next
 1. **Diego listens:** presets, Generate (Pop vs Bach, Tension, Color), hints, Smooth on/off. What sounds great, what doesn't.
 2. **Phase 8–9: Euclidean rhythm + harmonic sequencer.** Rhythm patterns applied to the progression (chords, bass, arps). Sync tempo to Ableton later.

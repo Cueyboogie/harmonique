@@ -146,3 +146,30 @@ describe('MIDI file', () => {
     expect(ons).toBe(6);
   });
 });
+
+describe('voice leading follows your hand', () => {
+  const C = buildScale('C', 'ionian');
+  const center = (n: number[]) => n.reduce((a, b) => a + b, 0) / n.length;
+  it('coming back down two octaves plays the low register again', () => {
+    let prev: number[] | null = null;
+    for (const [d, root] of [[1, 84], [6, 81], [4, 77], [5, 79]] as const) prev = voiceLead(diatonicChord(C, d, '7th'), root, prev);
+    const low = voiceLead(diatonicChord(C, 1, '7th'), 60, prev);
+    const home = voiceChord(diatonicChord(C, 1, '7th'), 60);
+    expect(Math.abs(center(low) - center(home))).toBeLessThanOrEqual(6);
+  });
+  it('a looping progression settles and never creeps', () => {
+    const prog = [[1, 60], [6, 57], [4, 65], [5, 67]] as const;
+    let prev: number[] | null = null;
+    const cycles: string[] = [];
+    for (let c = 0; c < 10; c++) {
+      const v = prog.map(([d, root]) => {
+        prev = voiceLead(diatonicChord(C, d, '7th'), root, prev);
+        const home = voiceChord(diatonicChord(C, d, '7th'), root);
+        expect(Math.abs(center(prev) - center(home))).toBeLessThanOrEqual(6);
+        return prev.join(',');
+      });
+      cycles.push(v.join('|'));
+    }
+    expect(new Set(cycles.slice(2)).size).toBe(1); // same voicings every time around
+  });
+});

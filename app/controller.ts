@@ -41,7 +41,8 @@ export class Controller {
   size: ChordSize = '7th';
   inversion = 0;
   spread: Spread = 'close';
-  smooth = true;
+  /** Voice leading. Off by default: a key always plays the same notes. On: chords re-voice to move as little as possible. */
+  smooth = false;
   style: Style = 'pop';
   bpm = 118;
   clockOut = true;

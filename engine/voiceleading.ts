@@ -9,9 +9,10 @@
  * each previous note, distance to the nearest new note, halved. This works even
  * when the two chords have different numbers of notes.
  *
- * Register pull: without it, a long progression can creep up or down the keyboard.
- * We add half the distance between the candidate's centre and the "home" voicing's
- * centre (the voicing you'd get without voice leading).
+ * Register anchoring: the key you press decides the register. Candidates must stay within
+ * half an octave of the "home" voicing (the one you'd get without voice leading), and a move
+ * of more than ~an octave between hands (you jumped up or down the keyboard) starts fresh
+ * from home. So the sound follows your hand, and a looping progression can't creep.
  */
 import type { Chord } from './chords';
 import { voiceChord, maxInversion, type Spread } from './voicing';
@@ -37,17 +38,21 @@ const center = (n: number[]) => n.reduce((s, x) => s + x, 0) / n.length;
 
 /** Voice `chord` so it connects smoothly to `prev`. With no `prev`, this is plain voiceChord. */
 export function voiceLead(chord: Chord, rootMidi: number, prev: number[] | null, opts: VoiceLeadOptions = {}): number[] {
-  const { spread = 'close', trim = true, inversion = 0, registerPull = 0.5 } = opts;
+  const { spread = 'close', trim = true, inversion = 0, registerPull = 1 } = opts;
   const home = voiceChord(chord, rootMidi, { inversion, spread, trim });
   if (!prev || !prev.length) return home;
   const homeCenter = center(home);
+  // You moved to another part of the keyboard: follow your hand, don't drag the old register along.
+  if (Math.abs(center(prev) - homeCenter) > 9) return home;
 
   let best = home;
-  let bestCost = Infinity;
+  let bestCost = movement(prev, home);
   for (const shift of [0, -12, 12]) {
     for (let inv = 0; inv <= maxInversion(chord); inv++) {
       const cand = voiceChord(chord, rootMidi + shift, { inversion: inv, spread, trim });
-      const cost = movement(prev, cand) + registerPull * Math.abs(center(cand) - homeCenter);
+      const off = Math.abs(center(cand) - homeCenter);
+      if (off > 6) continue; // stay within half an octave of where your hand is
+      const cost = movement(prev, cand) + registerPull * off;
       if (cost < bestCost - 1e-9) {
         best = cand;
         bestCost = cost;

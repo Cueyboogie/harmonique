@@ -93,7 +93,7 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode } = {}) {
     $('scale').textContent = scaleName;
     $('scale').style.fontSize = scaleName.length > 14 ? '18px' : scaleName.length > 10 ? '22px' : scaleName.length > 7 ? '28px' : '';
     $('size').textContent = c.size === 'triad' ? 'TRIADS' : up(c.size);
-    $('smooth').textContent = c.smooth ? 'SMOOTH' : 'OFF';
+    $('smooth').textContent = c.smooth ? 'SMOOTH' : 'FIXED';
     $('spread').textContent = up(c.spread);
     $('inv').textContent = ['ROOT', '1ST', '2ND', '3RD'][c.inversion];
 

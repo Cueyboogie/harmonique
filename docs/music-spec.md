@@ -217,9 +217,9 @@ Designed for a 49-key controller (Arturia KeyLab 49). The map repeats every octa
 | C major, I–V–vi–IV | Without voice leading | Smooth |
 |---|---|---|
 | Cmaj7 | 60 64 67 71 | 60 64 67 71 |
-| G7 | 67 71 74 77 | 62 65 67 71 |
-| Am7 | 69 72 76 79 | 64 67 69 72 |
-| Fmaj7 | 65 69 72 76 | 64 65 69 72 |
+| G7 | 67 71 74 77 | 65 67 71 74 |
+| Am7 | 69 72 76 79 | 67 69 72 76 |
+| Fmaj7 | 65 69 72 76 | 65 69 72 76 |
 
 **Chord-to-chord probabilities.** Two styles: *Bach*, learned from 368 J.S. Bach chorales (182 major, 186 minor) via the music21 corpus, and *Pop*, learned from the famous-progression presets below (looped). Major-3rd scales use the major table, minor-3rd scales the minor table.
 
