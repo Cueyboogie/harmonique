@@ -86,12 +86,15 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
       return;
     }
     $('st-sync').hidden = mode === 'web';
-    if (mode === 'web' && m.status !== 'ready') { $('st-midi').textContent = 'MIDI KEYBOARD ▸ OPTIONAL (CHROME)'; $('st-sound').textContent = `SOUND ${c.synth.enabled ? 'ON' : 'OFF'}`; return; }
+    const lat = c.synth.latencyMs;
+    const soundTxt = `SOUND ${c.synth.enabled ? 'ON' : 'OFF'}${c.synth.enabled && lat ? ` · ${lat} MS OUT` : ''}`;
+    $('st-sound').title = 'Delay the browser and your audio output add to every note (Bluetooth headphones add a lot)';
+    if (mode === 'web' && m.status !== 'ready') { $('st-midi').textContent = 'MIDI KEYBOARD ▸ OPTIONAL (CHROME)'; $('st-sound').textContent = soundTxt; return; }
     $('st-midi').textContent = m.status === 'ready'
       ? `MIDI ▸ ${m.outputName ? up(m.outputName) : 'NO OUTPUT'}`
       : m.status === 'pending' ? 'MIDI ▸ ALLOW ACCESS' : 'MIDI ▸ LOCAL APP ONLY';
     $('st-sync').textContent = `SYNC ▸ ABLETON ${c.clockOut ? 'ON' : 'OFF'}`;
-    $('st-sound').textContent = `BROWSER SOUND ${c.synth.enabled ? 'ON' : 'OFF'}`;
+    $('st-sound').textContent = `BROWSER ${soundTxt}`;
   }
 
   function renderKeyline() {
@@ -413,6 +416,10 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
   };
   window.addEventListener('pointerup', release);
   window.addEventListener('pointercancel', release);
+
+  const wake = () => c.synth.unlock();
+  window.addEventListener('pointerdown', wake, { capture: true });
+  window.addEventListener('keydown', wake, { capture: true });
 
   const held = new Set<string>();
   window.addEventListener('keydown', (e) => {

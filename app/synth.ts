@@ -16,7 +16,8 @@ export class Synth {
 
   private audio() {
     if (!this.ctx) {
-      this.ctx = new AudioContext({ latencyHint: 'interactive' });
+      // Smallest buffer the browser allows ('interactive' can still pick a larger one on some systems).
+      try { this.ctx = new AudioContext({ latencyHint: 0 }); } catch { this.ctx = new AudioContext({ latencyHint: 'interactive' }); }
       this.master = this.ctx.createGain();
       this.master.gain.value = 0.2;
       // Soft clip instead of a compressor: a compressor adds ~6 ms of look-ahead delay to every note.
@@ -28,6 +29,13 @@ export class Synth {
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
     return this.ctx;
+  }
+
+  /** What the browser reports it adds between "play" and your speakers, in ms (0 until sound has started). */
+  get latencyMs() {
+    if (!this.ctx) return 0;
+    const out = (this.ctx as AudioContext & { outputLatency?: number }).outputLatency ?? 0;
+    return Math.round(((this.ctx.baseLatency ?? 0) + out) * 1000);
   }
 
   /** Call from a click/keypress so the browser allows sound. */
@@ -63,7 +71,7 @@ export class Synth {
       const f = 440 * Math.pow(2, (note - 69) / 12);
       const g = ac.createGain();
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(level, t + 0.01);
+      g.gain.linearRampToValueAtTime(level, t + 0.003); // near-instant attack (the lowpass keeps it click-free)
       g.gain.exponentialRampToValueAtTime(level * 0.55, t + 0.6);
       const filter = ac.createBiquadFilter();
       filter.type = 'lowpass';

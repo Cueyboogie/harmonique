@@ -1,6 +1,10 @@
 # Handoff: replace "Current reads" with the Harmonique "Builds" tile
 
-For the theavidobserver.com build. Everything needed is in this note, plus ONE attached file:
+For the theavidobserver.com build.
+
+> **Already added the tile?** Then only replace `/side-quests/harmonique/index.html` with the attached
+> `harmonique-page.html` (latest build: steadier timing, loops close cleanly, lower latency, and a tip in the
+> how-to panel that wireless headphones add delay). Nothing else changes. Everything needed is in this note, plus ONE attached file:
 **`harmonique-page.html`** (the full-screen instrument page, self-contained; don't edit it).
 
 ## What to do
