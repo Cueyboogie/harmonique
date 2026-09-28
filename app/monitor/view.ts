@@ -349,6 +349,7 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
     const ex = $<HTMLAnchorElement>('exit');
     ex.href = opts.exitHref;
     ex.hidden = false;
+    $('intro-by').hidden = false;
   }
   if (mode === 'web') {
     $('panel-intro').hidden = false;
