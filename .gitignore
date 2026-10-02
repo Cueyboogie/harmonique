@@ -1,3 +1,10 @@
 node_modules/
 .vitest/
 .DS_Store
+
+# Video / marketing work and scratch outputs live in this folder but not in the code repo
+video/
+Claude outputs/
+*.mov
+*.mp4
+*.aep
