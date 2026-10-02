@@ -42,7 +42,7 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Build (universal: Apple silicon + Intel)
+      - name: Build (universal, Apple silicon + Intel)
         run: |
           cmake -S plugin -B build -DCMAKE_BUILD_TYPE=Release -DHARMONIQUE_COPY_AFTER_BUILD=ON
           cmake --build build --parallel --config Release
