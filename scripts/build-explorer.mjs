@@ -2,6 +2,7 @@
 //   app/monitor → dist/harmonic-monitor.html + dist/local/index.html (the Mac app's main look)
 //   app/        → dist/harmonic.html (Orbit on cream) + dist/local/orbit.html
 //   explorer/  → dist/scale-explorer.html + dist/local/explorer.html (engine review tool)
+//   app/plugin → dist/plugin/ (the AU / VST3 plugin's engine + window)
 import { build } from 'esbuild';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
@@ -50,5 +51,12 @@ const m4l = await bundle('app/m4l/main.ts', 'app/monitor/template.html');
 writeFileSync('dist/m4l/harmonique-m4l.html', standalone(m4l));
 const root = process.env.HARMONIQUE_ROOT ?? '/Users/diegocuevas/Documents/harmonic';
 writeFileSync('dist/m4l/Harmonique.amxd', buildDevice(`file://${root}/dist/m4l/harmonique-m4l.html`));
+
+// AU / VST3 plugin (plugin/): the engine that runs inside the plugin (QuickJS) + the plugin window's page.
+// The plugin embeds both files when it is compiled, so rebuild here before building the plugin.
+mkdirSync('dist/plugin', { recursive: true });
+const engine = await build({ entryPoints: ['app/plugin/engine.ts'], bundle: true, format: 'iife', minify: false, write: false, target: 'es2020' });
+writeFileSync('dist/plugin/harmonique-engine.js', engine.outputFiles[0].text);
+writeFileSync('dist/plugin/harmonique-ui.html', standalone(await bundle('app/plugin/ui.ts', 'app/monitor/template.html')));
 
 console.log(`built monitor (${(monitor.length / 1024).toFixed(1)} KB) + orbit + explorer · ${report.numPassedTests} tests`);

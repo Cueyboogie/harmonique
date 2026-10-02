@@ -1,0 +1,92 @@
+# Builds the Harmonique plugin: Audio Unit + VST3 on macOS (universal), VST3 on Windows,
+# and runs the tests + plugin validators. Download the built plugins from the run's "Artifacts".
+name: Plugin
+
+on:
+  push:
+    paths: ['plugin/**', 'app/**', 'engine/**', 'explorer/**', 'dist/plugin/**', 'tests/**', 'package*.json', '.github/workflows/plugin.yml']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests + Linux VST3 (pluginval)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: dist/plugin is up to date with the source
+        run: npm run build && git diff --exit-code -- dist/plugin
+      - name: Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libasound2-dev libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libcurl4-openssl-dev libfreetype-dev libfontconfig1-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+            libxcomposite-dev libglu1-mesa-dev xvfb
+      - run: cmake -S plugin -B build -DCMAKE_BUILD_TYPE=Release -DHARMONIQUE_TESTS=ON -DHARMONIQUE_COPY_AFTER_BUILD=OFF
+      - run: cmake --build build --parallel --target harmonique_plugin_test Harmonique_VST3
+      - name: Plugin test (real time, engine thread, fake transport)
+        run: ./build/harmonique_plugin_test_artefacts/Release/harmonique_plugin_test
+      - name: pluginval
+        run: |
+          curl -sSL -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip
+          unzip -q pluginval.zip
+          xvfb-run -a ./pluginval --strictness-level 8 --validate-in-process build/Harmonique_artefacts/Release/VST3/Harmonique.vst3
+
+  macos:
+    name: macOS AU + VST3
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build (universal: Apple silicon + Intel)
+        run: |
+          cmake -S plugin -B build -DCMAKE_BUILD_TYPE=Release -DHARMONIQUE_COPY_AFTER_BUILD=ON
+          cmake --build build --parallel --config Release
+      - name: Ad-hoc sign
+        run: |
+          for p in ~/Library/Audio/Plug-Ins/Components/Harmonique*.component ~/Library/Audio/Plug-Ins/VST3/Harmonique.vst3; do
+            codesign --force --deep --sign - "$p"
+          done
+      - name: auval (Apple's Audio Unit validator)
+        run: |
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          auval -a | grep -i oscl || true
+          auval -strict -v aumu Hrmq Oscl
+          auval -strict -v aumi Hrmf Oscl
+      - name: pluginval (VST3 + AU)
+        run: |
+          curl -sSL -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_macOS.zip
+          unzip -q pluginval.zip
+          ./pluginval.app/Contents/MacOS/pluginval --strictness-level 8 --validate-in-process ~/Library/Audio/Plug-Ins/VST3/Harmonique.vst3
+          ./pluginval.app/Contents/MacOS/pluginval --strictness-level 8 --validate-in-process ~/Library/Audio/Plug-Ins/Components/Harmonique.component
+      - name: Package
+        run: |
+          mkdir -p out
+          cp -R ~/Library/Audio/Plug-Ins/Components/Harmonique.component ~/Library/Audio/Plug-Ins/Components/"Harmonique MIDI FX.component" ~/Library/Audio/Plug-Ins/VST3/Harmonique.vst3 out/
+          cp plugin/INSTALL-mac.txt out/
+          ditto -c -k --sequesterRsrc out Harmonique-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Harmonique-macOS
+          path: Harmonique-macOS.zip
+
+  windows:
+    name: Windows VST3
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: WebView2 SDK (for the plugin window)
+        shell: pwsh
+        run: |
+          Register-PackageSource -provider NuGet -name nugetRepository -location https://www.nuget.org/api/v2 -Force
+          Install-Package Microsoft.Web.WebView2 -Scope CurrentUser -RequiredVersion 1.0.1901.177 -Source nugetRepository -Force
+      - run: cmake -S plugin -B build -DHARMONIQUE_COPY_AFTER_BUILD=OFF
+      - run: cmake --build build --parallel --config Release --target Harmonique_VST3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Harmonique-Windows-VST3
+          path: build/Harmonique_artefacts/Release/VST3/Harmonique.vst3

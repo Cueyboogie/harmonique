@@ -9,7 +9,8 @@
     "spec": "tsx scripts/generate-spec.ts",
     "explorer": "node scripts/build-explorer.mjs",
     "start": "node scripts/serve.mjs",
-    "build": "npm run spec && npm run explorer"
+    "build": "npm run spec && npm run explorer",
+    "plugin": "cmake -S plugin -B plugin/build -DCMAKE_BUILD_TYPE=Release && cmake --build plugin/build --config Release"
   },
   "keywords": [],
   "author": "",

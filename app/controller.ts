@@ -33,6 +33,8 @@ interface Held { keyPc: number; notes: number[]; velocity: number; label: string
 
 const LOOKAHEAD_MS = 120;
 const TICK_MS = 25;
+/** Locked to a host, how far back the scheduler starts: the host's first beat is only known just after it passed. */
+const CATCH_UP_MS = 60;
 
 export class Controller {
   /* ---------- settings ---------- */
@@ -430,7 +432,8 @@ export class Controller {
   private startTransport(at: number) {
     this.running = true;
     this.transportStart = this.hostZero ?? at; // on Live's grid when Live is playing
-    this.scheduledTo = at;
+    // With the host playing, a chord due a moment ago (its beat 1) goes out a few ms late instead of a whole loop later.
+    this.scheduledTo = this.hostZero !== null ? Math.max(this.hostZero, at - CATCH_UP_MS) : at;
     if (this.clockOut) this.midi.raw([0xfa], at); // MIDI Start
     window.clearInterval(this.timer);
     this.timer = window.setInterval(() => this.tick(), TICK_MS);

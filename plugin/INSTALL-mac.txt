@@ -1,0 +1,17 @@
+HARMONIQUE — plugin install (macOS)
+
+1. Copy the plugins:
+     Harmonique.component            →  ~/Library/Audio/Plug-Ins/Components/
+     Harmonique MIDI FX.component    →  ~/Library/Audio/Plug-Ins/Components/
+     Harmonique.vst3                 →  ~/Library/Audio/Plug-Ins/VST3/
+   (~/Library is hidden: in Finder press Cmd+Shift+G and paste the path.)
+
+2. These builds aren't notarized yet, so macOS blocks them the first time. In Terminal:
+     xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/Harmonique*.component ~/Library/Audio/Plug-Ins/VST3/Harmonique.vst3
+
+3. Restart your DAW (Logic: it rescans Audio Units on launch).
+
+Ableton Live:  use the VST3 (Harmonique). Put it on a MIDI track, arm the track, then on a second
+               MIDI track with an instrument set MIDI From → the Harmonique track → "Harmonique".
+Logic Pro:     on a Software Instrument track, MIDI FX slot → Audio Units → Oscillate Audioworks →
+               Harmonique MIDI FX. The track's instrument plays what Harmonique sends.
