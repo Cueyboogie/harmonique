@@ -86,6 +86,8 @@ export class Controller {
   private loopOffset = 0;
   readonly synth = new Synth();
   private humanizer = new Humanizer();
+  /** The loop came from IDEAS (not played by you): HUMAN shapes it live on every pass and follows the switch. */
+  private loopFeelLive = false;
 
   private held = new Map<string, Held>();
   private lastNotes: number[] | null = null;
@@ -261,6 +263,7 @@ export class Controller {
     if (!fixed) take = { ...take, bpm: Math.round(take.bpm) }; // a clean whole-number tempo for the DAW (≤0.5% change)
     this.loopOffset = this.hostZero !== null ? Math.round(((this.recT0 - this.hostZero) * this.bpm) / 60000) : 0;
     this.rawTake = take;
+    this.loopFeelLive = false; // your take replays exactly as played
     this.loopBars = 'auto';
     this.derive();
     this.takeName = 'Your take';
@@ -298,13 +301,12 @@ export class Controller {
     const chords = keys.map((pc) => {
       const hit = chordForKey(60 + pc, this.scale, this.map);
       prev = voiceLead(hit.slot.chord, hit.rootMidi, this.smooth ? prev : null, { inversion: this.inversion, spread: this.spread });
-      // With HUMAN on, the feel is played in once, as if you'd recorded it: the loop then repeats it as is.
-      const velocities = this.human.on ? this.velocitiesFor(prev, 96) : undefined;
-      return { notes: prev, beats: 4, keyPc: pc, label: hit.slot.chord.symbol, velocities };
+      return { notes: prev, beats: 4, keyPc: pc, label: hit.slot.chord.symbol };
     });
     this.stop();
     this.loopOffset = 0;
     this.rawTake = takeFromChords(chords, this.bpm);
+    this.loopFeelLive = true;
     this.loopBars = 'auto';
     this.derive();
     this.takeName = name;
@@ -491,7 +493,8 @@ export class Controller {
           const tOn = this.timeAt(b);
           const tOff = this.timeAt(b + e.length);
           jobs.push({ t: tOn, order: 2, run: () => {
-            this.emitOn(id, e.notes, e.velocities ?? e.notes.map(() => e.velocity), e.keyPc ?? 0, e.label ?? '', 'loop', tOn);
+            const vels = e.velocities ?? (this.loopFeelLive ? this.velocitiesFor(e.notes, e.velocity) : e.notes.map(() => e.velocity));
+            this.emitOn(id, e.notes, vels, e.keyPc ?? 0, e.label ?? '', 'loop', tOn);
             this.emitOffAt(id, tOff);
           } });
         });

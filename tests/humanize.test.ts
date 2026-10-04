@@ -15,13 +15,13 @@ describe('Humanizer', () => {
 
   it('voicing alone: top sings, bass holds, inner notes sit back (predictable)', () => {
     const v = new Humanizer(rng(1)).velocities(CHORD, 100, on({ amount: 1, dynamics: 0, drift: 0 }));
-    expect(v).toEqual([105, 90, 90, 90, 112]);
+    expect(v).toEqual([106, 85, 85, 85, 115]);
     expect(new Humanizer(rng(99)).velocities(CHORD, 100, on({ amount: 1, dynamics: 0, drift: 0 }))).toEqual(v);
   });
 
   it('works in any note order: shape follows pitch, not position', () => {
     const v = new Humanizer(rng(1)).velocities([67, 48, 60], 100, on({ amount: 1, dynamics: 0, drift: 0 }));
-    expect(v).toEqual([112, 105, 90]);
+    expect(v).toEqual([115, 106, 85]);
   });
 
   it('single notes: no voicing shape', () => {
@@ -43,7 +43,7 @@ describe('Humanizer', () => {
     const mean = all.reduce((a, b) => a + b, 0) / all.length;
     expect(Math.abs(mean - 80)).toBeLessThan(1);
     expect(new Set(all).size).toBeGreaterThan(10);
-    all.forEach((x) => expect(Math.abs(x - 80)).toBeLessThan(25));
+    all.forEach((x) => expect(Math.abs(x - 80)).toBeLessThan(35));
   });
 
   it('drift wanders: neighbouring hits are closer than random hits', () => {

@@ -70,7 +70,10 @@ export class Synth {
     const gains: GainNode[] = [];
     notes.forEach((note, i) => {
       const v = typeof velocity === 'number' ? velocity : velocity[i] ?? 100;
-      const level = (0.14 * (0.4 + (v / 127) * 0.6)) / share;
+      // Velocity matters the way it does on a real instrument: harder = louder AND brighter.
+      // Loudness follows a curve (≈ 22 dB from soft to loud), and velocity 100 sounds as it always did.
+      const vn = Math.max(1, Math.min(127, v)) / 127;
+      const level = (0.122 * Math.pow(v / 100, 2)) / share;
       const f = 440 * Math.pow(2, (note - 69) / 12);
       const g = ac.createGain();
       g.gain.setValueAtTime(0, t);
@@ -78,8 +81,8 @@ export class Synth {
       g.gain.exponentialRampToValueAtTime(level * 0.55, t + 0.6);
       const filter = ac.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(3400, t);
-      filter.frequency.exponentialRampToValueAtTime(1200, t + 0.9);
+      filter.frequency.setValueAtTime(900 + 3500 * Math.pow(vn, 1.5), t);
+      filter.frequency.exponentialRampToValueAtTime(600 + 800 * vn, t + 0.9);
       (['triangle', 'sawtooth'] as OscillatorType[]).forEach((type, i) => {
         const o = ac.createOscillator();
         o.type = type;

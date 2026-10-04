@@ -27,11 +27,11 @@ export interface HumanFeel {
 export const HUMAN_DEFAULT: HumanFeel = { on: false, amount: 0.5, voicing: 0.5, dynamics: 0.5, drift: 0.5 };
 
 /** At full strength (amount 1, detail 0.5): how much each part moves the velocity. */
-const TOP_BOOST = 0.12; // top note +12 %
-const BASS_BOOST = 0.05; // bass +5 %
-const INNER_CUT = 0.1; // inner notes −10 %
-const JITTER_SD = 5; // velocity units, per note
-const DRIFT_DEPTH = 0.08; // ±8 % (one standard deviation of the walk)
+const TOP_BOOST = 0.15; // top note +15 %
+const BASS_BOOST = 0.06; // bass +6 %
+const INNER_CUT = 0.15; // inner notes −15 %
+const JITTER_SD = 7; // velocity units, per note
+const DRIFT_DEPTH = 0.1; // ±10 % (one standard deviation of the walk)
 /** Walk memory: each hit keeps 80 % of the last one's lean; the rest is new. Stationary spread = 1. */
 const DRIFT_KEEP = 0.8;
 const DRIFT_STEP = Math.sqrt(1 - DRIFT_KEEP * DRIFT_KEEP);
