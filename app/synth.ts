@@ -59,15 +59,18 @@ export class Synth {
     return t > ac.currentTime ? t : ac.currentTime; // only a stall longer than the look-ahead lands here
   }
 
-  on(id: string, notes: number[], velocity: number, at?: number) {
+  /** `velocity`: one for the whole chord, or one per note (same order as `notes`). */
+  on(id: string, notes: number[], velocity: number | number[], at?: number) {
     if (!this.enabled) return;
     this.off(id, at);
     const ac = this.audio();
     const t = this.toCtx(at);
-    const level = (0.14 * (0.4 + (velocity / 127) * 0.6)) / Math.sqrt(Math.max(1, notes.length / 3));
+    const share = Math.sqrt(Math.max(1, notes.length / 3));
     const osc: OscillatorNode[] = [];
     const gains: GainNode[] = [];
-    for (const note of notes) {
+    notes.forEach((note, i) => {
+      const v = typeof velocity === 'number' ? velocity : velocity[i] ?? 100;
+      const level = (0.14 * (0.4 + (v / 127) * 0.6)) / share;
       const f = 440 * Math.pow(2, (note - 69) / 12);
       const g = ac.createGain();
       g.gain.setValueAtTime(0, t);
@@ -88,7 +91,7 @@ export class Synth {
       });
       filter.connect(g).connect(this.master);
       gains.push(g);
-    }
+    });
     this.groups.set(id, { osc, gains });
   }
 

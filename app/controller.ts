@@ -17,6 +17,7 @@ import {
   reinterpret, takeToMidiEvents, writeMidi, noteLabel, quantizeTake, setLoopBars, snapToScale, scaleNoteLabel,
   type Scale, type ChordSlot, type ScaleId, type ChordSize, type Spread, type Suggestion,
   type Pattern, type Take, type RawEvent, type Style, type Preset, type Quantize,
+  Humanizer, HUMAN_DEFAULT, type HumanFeel,
 } from '../engine';
 import { MidiBridge, type MidiIO, type MidiCallbacks } from '../explorer/midi';
 import { Synth } from './synth';
@@ -50,6 +51,8 @@ export class Controller {
   /** CHORDS: each key plays a chord. NOTES: each key plays one note snapped to the scale. */
   playMode: PlayMode = 'chords';
   pattern: Pattern = { ...GROOVES[2].pattern };
+  /** HUMAN: each note of a chord gets its own loudness. Off: every note at the played velocity. */
+  human: HumanFeel = { ...HUMAN_DEFAULT };
 
   /* ---------- derived ---------- */
   scale!: Scale;
@@ -82,6 +85,7 @@ export class Controller {
   /** Host beat where the loop's beat 0 sits (the bar you started recording on), so it replays where you played it. */
   private loopOffset = 0;
   readonly synth = new Synth();
+  private humanizer = new Humanizer();
 
   private held = new Map<string, Held>();
   private lastNotes: number[] | null = null;
@@ -124,6 +128,14 @@ export class Controller {
     this.recompute();
     this.notify();
   }
+  setHuman(patch: Partial<HumanFeel>) {
+    if (patch.on && !this.human.on) this.humanizer.reset();
+    this.human = { ...this.human, ...patch };
+    this.notify();
+  }
+  /** Velocities for one hit: shaped by HUMAN when it's on, otherwise all the played velocity. */
+  private velocitiesFor(notes: number[], velocity: number) { return this.humanizer.velocities(notes, velocity, this.human); }
+
   get keyName() { return `${noteLabel(this.scale.root)} ${this.scale.def.name}`; }
 
   setBpm(bpm: number, fromHost = false) {
@@ -160,7 +172,7 @@ export class Controller {
       this.held.delete(src);
       this.held.set(src, { keyPc, notes: [note], velocity, label, ch: NOTE_CH });
       if (this.euclidOn) this.ensureTransport();
-      else this.emitOn(`live:${src}`, [note], velocity, keyPc, label, 'live', undefined, NOTE_CH);
+      else this.emitOn(`live:${src}`, [note], this.velocitiesFor([note], velocity), keyPc, label, 'live', undefined, NOTE_CH);
       this.notify();
       return;
     }
@@ -175,7 +187,7 @@ export class Controller {
     this.held.delete(src); // re-insert so it becomes the most recent
     this.held.set(src, { keyPc, notes, velocity, label: hit.slot.chord.symbol, ch: CHORD_CH });
     if (this.euclidOn) this.ensureTransport();
-    else this.emitOn(`live:${src}`, notes, velocity, keyPc, hit.slot.chord.symbol, 'live');
+    else this.emitOn(`live:${src}`, notes, this.velocitiesFor(notes, velocity), keyPc, hit.slot.chord.symbol, 'live');
     this.notify();
   }
 
@@ -286,7 +298,9 @@ export class Controller {
     const chords = keys.map((pc) => {
       const hit = chordForKey(60 + pc, this.scale, this.map);
       prev = voiceLead(hit.slot.chord, hit.rootMidi, this.smooth ? prev : null, { inversion: this.inversion, spread: this.spread });
-      return { notes: prev, beats: 4, keyPc: pc, label: hit.slot.chord.symbol };
+      // With HUMAN on, the feel is played in once, as if you'd recorded it: the loop then repeats it as is.
+      const velocities = this.human.on ? this.velocitiesFor(prev, 96) : undefined;
+      return { notes: prev, beats: 4, keyPc: pc, label: hit.slot.chord.symbol, velocities };
     });
     this.stop();
     this.loopOffset = 0;
@@ -361,16 +375,22 @@ export class Controller {
   }
 
   /* ================= output funnel ================= */
-  private emitOn(id: string, notes: number[], velocity: number, keyPc: number, label: string, source: Source, at?: number, ch = CHORD_CH) {
+  /** `vels`: one velocity per note (same order as `notes`). */
+  private emitOn(id: string, notes: number[], vels: number[], keyPc: number, label: string, source: Source, at?: number, ch = CHORD_CH) {
     if (this.active.has(id)) this.emitOff(id, at);
     const out: Out = { notes, keyPc, source, label, ch };
     this.active.set(id, out);
-    this.synth.on(id, notes, velocity, at);
-    for (const n of notes) this.midi.send(n, velocity, ch, at);
+    this.synth.on(id, notes, vels, at);
+    notes.forEach((n, i) => this.midi.send(n, vels[i], ch, at));
+    const velocity = Math.max(...vels);
+    const uneven = vels.some((v) => v !== vels[0]);
     const t = at ?? performance.now();
     if (source !== 'loop' && ch === CHORD_CH) { // the loop records chords; notes go straight to Ableton
       if (this.rec === 'armed') { this.rec = 'recording'; this.recT0 = this.recordAnchor(t); this.notify(); }
-      if (this.rec === 'recording') this.recOpen.set(id, { startMs: Math.max(0, t - this.recT0), lengthMs: 0, notes, velocity, keyPc, label });
+      if (this.rec === 'recording') {
+        // Recorded exactly as it came out, so the loop plays back what you played.
+        this.recOpen.set(id, { startMs: Math.max(0, t - this.recT0), lengthMs: 0, notes, velocity, ...(uneven ? { velocities: vels.slice() } : {}), keyPc, label });
+      }
     }
     this.later(t, () => { this.sounding.set(id, out); if (source === 'loop') this.showLoopChord(out); this.notify(); });
   }
@@ -471,7 +491,7 @@ export class Controller {
           const tOn = this.timeAt(b);
           const tOff = this.timeAt(b + e.length);
           jobs.push({ t: tOn, order: 2, run: () => {
-            this.emitOn(id, e.notes, e.velocity, e.keyPc ?? 0, e.label ?? '', 'loop', tOn);
+            this.emitOn(id, e.notes, e.velocities ?? e.notes.map(() => e.velocity), e.keyPc ?? 0, e.label ?? '', 'loop', tOn);
             this.emitOffAt(id, tOff);
           } });
         });
@@ -491,7 +511,8 @@ export class Controller {
           jobs.push({ t: tOn, order: 2, run: () => {
             const chord = this.euclidChord;
             if (!chord) return;
-            this.emitOn(id, chord.notes, chord.velocity, chord.keyPc, chord.label, 'euclid', tOn, chord.ch);
+            // Each hit is a new strike of the hand: HUMAN shapes it fresh (and it's recorded as it came out).
+            this.emitOn(id, chord.notes, this.velocitiesFor(chord.notes, chord.velocity), chord.keyPc, chord.label, 'euclid', tOn, chord.ch);
             this.emitOffAt(id, tOff);
           } });
         });

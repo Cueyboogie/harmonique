@@ -9,6 +9,8 @@ export interface NoteEvent {
   /** Length, in beats. */
   length: number;
   velocity?: number;
+  /** Per-note velocities (same order as `notes`); overrides `velocity`. */
+  velocities?: number[];
 }
 
 const vlq = (n: number) => {
@@ -24,10 +26,10 @@ export function writeMidi(events: NoteEvent[], bpm = 120, name = 'Harmonic', ppq
   for (const e of events) {
     const on = Math.round(e.start * ppq);
     const off = Math.round((e.start + e.length) * ppq);
-    for (const n of e.notes) {
-      raw.push({ tick: on, order: 1, data: [0x90, n, e.velocity ?? 100] });
+    e.notes.forEach((n, i) => {
+      raw.push({ tick: on, order: 1, data: [0x90, n, e.velocities?.[i] ?? e.velocity ?? 100] });
       raw.push({ tick: off, order: 0, data: [0x80, n, 0] }); // offs before ons at the same tick
-    }
+    });
   }
   raw.sort((a, b) => a.tick - b.tick || a.order - b.order);
 

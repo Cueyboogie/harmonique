@@ -258,6 +258,24 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
     if (!pr.childElementCount) pr.innerHTML = PRESETS.map((p, i) => `<button type="button" data-preset="${i}" title="${esc(p.mood)}">${esc(p.name)}</button>`).join('');
   }
 
+  const HUMAN_DIALS = ['voicing', 'dynamics', 'drift'] as const;
+  function setKnob(id: string, v: number, disabled = false) {
+    const el = $<HTMLInputElement>(id);
+    const pct = Math.round(v * 100);
+    if (document.activeElement !== el) el.value = String(pct);
+    el.style.setProperty('--v', `${pct}%`);
+    el.disabled = disabled;
+    $(`${id}-v`).textContent = `${pct}%`;
+  }
+  function renderHuman() {
+    const h = c.human;
+    $('hu-on').setAttribute('aria-checked', String(h.on));
+    $('hu-off').setAttribute('aria-checked', String(!h.on));
+    $('hu-ctl').style.opacity = h.on ? '' : '.4';
+    setKnob('hu-amt', h.amount);
+    for (const d of HUMAN_DIALS) setKnob(`hu-${d}`, h[d]);
+  }
+
   function render() {
     renderStatus();
     renderKeyline();
@@ -267,6 +285,7 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
     renderTempo();
     renderScope();
     renderPanels();
+    renderHuman();
   }
 
   /* ---------- animation: sweeps follow the real transport ---------- */
@@ -357,7 +376,9 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
   $('st-sync').onclick = () => c.set('clockOut', !c.clockOut);
   $('st-sound').onclick = () => { c.synth.enabled = !c.synth.enabled; if (!c.synth.enabled) c.synth.allOff(); render(); };
   $('st-phos').onclick = () => { phos = (phos + 1) % PHOSPHORS.length; applyPhosphor(); };
-  const openPanel = (id: string) => { for (const pid of ['panel-midi', 'panel-ideas']) $(pid).hidden = pid !== id || !$(pid).hidden; };
+  const PANELS = ['panel-midi', 'panel-ideas', 'panel-human', 'panel-intro'];
+  const closePanels = () => { for (const pid of PANELS) $(pid).hidden = true; };
+  const openPanel = (id: string) => { for (const pid of PANELS) $(pid).hidden = pid !== id || !$(pid).hidden; };
   $('st-midi').onclick = () => { if (mode !== 'live') openPanel('panel-midi'); };
   if (opts.exitHref) {
     const ex = $<HTMLAnchorElement>('exit');
@@ -370,6 +391,13 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
     $('intro-go').onclick = () => { c.synth.unlock(); $('panel-intro').hidden = true; };
   }
   $('ideas').onclick = () => openPanel('panel-ideas');
+  $('hu-on').onclick = () => c.setHuman({ on: true });
+  $('hu-off').onclick = () => c.setHuman({ on: false });
+  // Moving the knob means you want to hear it: it switches HUMAN on.
+  $<HTMLInputElement>('hu-amt').oninput = (e) => c.setHuman({ on: true, amount: Number((e.target as HTMLInputElement).value) / 100 });
+  for (const d of HUMAN_DIALS) $<HTMLInputElement>(`hu-${d}`).oninput = (e) => c.setHuman({ [d]: Number((e.target as HTMLInputElement).value) / 100 });
+  $('hu-reset').onclick = () => c.setHuman({ voicing: 0.5, dynamics: 0.5, drift: 0.5 });
+  $('hu-more').onclick = () => openPanel('panel-human');
   $('style').onclick = () => c.set('style', c.style === 'pop' ? 'bach' : 'pop');
   $('generate').onclick = () => { c.generate(); $('panel-ideas').hidden = true; };
   $('panic').onclick = () => c.panic();
@@ -397,7 +425,7 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
     if (st) { toggleStep(Number(st.getAttribute('data-step'))); return; }
     const pr = t.closest<HTMLElement>('[data-preset]');
     if (pr) { c.loadPreset(PRESETS[Number(pr.dataset.preset)]); $('panel-ideas').hidden = true; return; }
-    if (t.closest('[data-close]')) { $('panel-midi').hidden = $('panel-ideas').hidden = $('panel-intro').hidden = true; }
+    if (t.closest('[data-close]')) closePanels();
   });
 
   document.addEventListener('pointerdown', (e) => {
@@ -425,8 +453,8 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
     const tag = (e.target as HTMLElement).tagName;
-    if (tag === 'INPUT' || tag === 'SELECT') return;
-    if (e.code === 'Escape') { $('panel-midi').hidden = $('panel-ideas').hidden = $('panel-intro').hidden = true; return; }
+    if ((tag === 'INPUT' && (e.target as HTMLInputElement).type !== 'range') || tag === 'SELECT') return; // sliders don't block playing
+    if (e.code === 'Escape') { closePanels(); return; }
     if (e.code === 'Space' && (e.target as HTMLElement) === document.body) { e.preventDefault(); c.playing ? c.stop() : c.play(); return; }
     if (e.code === 'KeyZ' || e.code === 'KeyX') { kbOctave = Math.max(1, Math.min(7, kbOctave + (e.code === 'KeyX' ? 1 : -1))); return; }
     const i = COMPUTER_KEYS.indexOf(e.code);
