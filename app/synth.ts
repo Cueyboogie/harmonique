@@ -59,15 +59,21 @@ export class Synth {
     return t > ac.currentTime ? t : ac.currentTime; // only a stall longer than the look-ahead lands here
   }
 
-  on(id: string, notes: number[], velocity: number, at?: number) {
+  /** `velocity`: one for the whole chord, or one per note (same order as `notes`). */
+  on(id: string, notes: number[], velocity: number | number[], at?: number) {
     if (!this.enabled) return;
     this.off(id, at);
     const ac = this.audio();
     const t = this.toCtx(at);
-    const level = (0.14 * (0.4 + (velocity / 127) * 0.6)) / Math.sqrt(Math.max(1, notes.length / 3));
+    const share = Math.sqrt(Math.max(1, notes.length / 3));
     const osc: OscillatorNode[] = [];
     const gains: GainNode[] = [];
-    for (const note of notes) {
+    notes.forEach((note, i) => {
+      const v = typeof velocity === 'number' ? velocity : velocity[i] ?? 100;
+      // Velocity matters the way it does on a real instrument: harder = louder AND brighter.
+      // Loudness follows a curve (≈ 22 dB from soft to loud), and velocity 100 sounds as it always did.
+      const vn = Math.max(1, Math.min(127, v)) / 127;
+      const level = (0.122 * Math.pow(v / 100, 2)) / share;
       const f = 440 * Math.pow(2, (note - 69) / 12);
       const g = ac.createGain();
       g.gain.setValueAtTime(0, t);
@@ -75,8 +81,8 @@ export class Synth {
       g.gain.exponentialRampToValueAtTime(level * 0.55, t + 0.6);
       const filter = ac.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(3400, t);
-      filter.frequency.exponentialRampToValueAtTime(1200, t + 0.9);
+      filter.frequency.setValueAtTime(900 + 3500 * Math.pow(vn, 1.5), t);
+      filter.frequency.exponentialRampToValueAtTime(600 + 800 * vn, t + 0.9);
       (['triangle', 'sawtooth'] as OscillatorType[]).forEach((type, i) => {
         const o = ac.createOscillator();
         o.type = type;
@@ -88,7 +94,7 @@ export class Synth {
       });
       filter.connect(g).connect(this.master);
       gains.push(g);
-    }
+    });
     this.groups.set(id, { osc, gains });
   }
 

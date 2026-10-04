@@ -23,6 +23,8 @@ export interface TakeEvent {
   length: number;
   notes: number[];
   velocity: number;
+  /** Per-note velocities (same order as `notes`) when they differ, e.g. with HUMAN feel on. */
+  velocities?: number[];
   /** Which key (0 = C … 11 = B) produced it, for display. */
   keyPc?: number;
   /** Chord name at the time it was played, e.g. "Fmaj7". */
@@ -44,6 +46,7 @@ export interface RawEvent {
   lengthMs: number;
   notes: number[];
   velocity: number;
+  velocities?: number[];
   keyPc?: number;
   label?: string;
 }
@@ -193,6 +196,7 @@ export function takeFromRecording(raw: RawEvent[], _durationMs: number, fixedBpm
     length: Math.max(0.05, Math.min(e.lengthMs / beatMs, beats - e.startMs / beatMs)),
     notes: e.notes.slice(),
     velocity: e.velocity,
+    ...(e.velocities ? { velocities: e.velocities.slice() } : {}),
     keyPc: e.keyPc,
     label: e.label,
   }));
@@ -221,10 +225,11 @@ export function reinterpret(take: Take, factor: 2 | 0.5): Take {
 }
 
 /** A take made from a list of chords, each held for a number of beats (presets, generator). */
-export function takeFromChords(chords: { notes: number[]; beats: number; keyPc?: number; label?: string }[], bpm: number): Take {
+export function takeFromChords(chords: { notes: number[]; beats: number; keyPc?: number; label?: string; velocities?: number[] }[], bpm: number): Take {
   let t = 0;
   const events = chords.map((c) => {
-    const e = { start: t, length: c.beats, notes: c.notes, velocity: 96, keyPc: c.keyPc, label: c.label };
+    const e: TakeEvent = { start: t, length: c.beats, notes: c.notes, velocity: 96, keyPc: c.keyPc, label: c.label };
+    if (c.velocities) e.velocities = c.velocities;
     t += c.beats;
     return e;
   });
@@ -232,7 +237,7 @@ export function takeFromChords(chords: { notes: number[]; beats: number; keyPc?:
 }
 
 export function takeToMidiEvents(take: Take): NoteEvent[] {
-  return take.events.map((e) => ({ notes: e.notes, start: e.start, length: e.length, velocity: e.velocity }));
+  return take.events.map((e) => ({ notes: e.notes, start: e.start, length: e.length, velocity: e.velocity, velocities: e.velocities }));
 }
 
 /* ---------------- quantize & loop length ---------------- */
