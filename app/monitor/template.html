@@ -48,6 +48,7 @@
   .status { display: flex; justify-content: space-between; align-items: center; }
   .status .t { opacity: .85; }
   .status .t:hover { opacity: 1; }
+  .status .t.lit { opacity: 1; }
 
   /* wordmark */
   .mark { position: relative; height: 96px; display: grid; place-items: center; }
@@ -164,6 +165,7 @@
         <div class="status">
           <button class="t" id="st-midi" type="button" aria-haspopup="dialog">MIDI</button>
           <button class="t" id="st-sync" type="button" title="Send MIDI Clock so Ableton follows this tempo">SYNC ▸ ABLETON</button>
+          <button class="t" id="st-human" type="button" aria-haspopup="dialog" title="Human feel: every note of a chord gets its own loudness">HUMAN ▸ OFF</button>
           <button class="t" id="st-sound" type="button">SOUND ON</button>
           <button class="t" id="st-phos" type="button" title="Screen colour">PHOSPHOR AMBER</button>
         </div>
@@ -221,20 +223,6 @@
                 <span class="grp" title="Step length"><span class="k">STEP</span><button class="t" id="v-rate" type="button" aria-label="Step length, click to change"></button></span>
                 <span class="grp" title="How long each hit rings"><span class="k">NOTE</span><button class="t" id="v-gate" type="button" aria-label="Note length, click to change"></button></span>
                 <span class="grp"><span class="k">GROOVE</span><button class="t arr" id="groove-prev" type="button" aria-label="Previous groove">◂</button><b id="v-groove" style="min-width:64px"></b><button class="t arr" id="groove-next" type="button" aria-label="Next groove">▸</button></span>
-              </div>
-            </section>
-            <!-- HUMAN: every note of a chord gets its own loudness -->
-            <section class="sec" aria-labelledby="hu-title">
-              <div class="sec-head">
-                <span class="seg" role="radiogroup" aria-label="Human feel"><span class="bracket" aria-hidden="true">[</span><button class="t big" id="hu-off" type="button" role="radio" aria-checked="true">OFF</button><button class="t big" id="hu-on" type="button" role="radio" aria-checked="false">ON</button><span class="bracket" aria-hidden="true">]</span></span>
-                <span class="sec-title" id="hu-title">HUMAN</span>
-                <span class="human-row" id="hu-ctl" title="How human it feels: how much each note's loudness differs, within a chord and from hit to hit">
-                  <span class="k">AMOUNT</span>
-                  <input class="knob" id="hu-amt" type="range" min="0" max="100" step="1" aria-label="Human amount">
-                  <span class="knob-val" id="hu-amt-v"></span>
-                </span>
-                <span style="flex-grow:1"></span>
-                <button class="t" id="hu-more" type="button" aria-haspopup="dialog" title="Fine-tune the feel">DETAIL ▸</button>
               </div>
             </section>
             <div class="brand" aria-label="Oscillate Audioworks">
@@ -320,19 +308,29 @@
         <button class="t big" id="intro-go" type="button" style="justify-self:start">▶ START PLAYING</button>
       </div>
 
-      <div class="panel" id="panel-human" hidden role="dialog" aria-label="Human feel detail" style="top:auto;bottom:90px;left:60px;right:auto;width:470px">
+      <div class="panel" id="panel-human" hidden role="dialog" aria-label="Human feel" style="right:auto;width:440px">
         <button class="t close" type="button" data-close>CLOSE ✕</button>
-        <h3 class="glow">HUMAN · DETAIL</h3>
-        <span class="lbl">AMOUNT SCALES ALL THREE · MIDDLE = STANDARD</span>
-        <div class="dial">
-          <span class="lbl">VOICING</span><input class="knob" id="hu-voicing" type="range" min="0" max="100" step="1" aria-label="Voicing"><span class="knob-val" id="hu-voicing-v"></span>
-          <p>The hand's shape: top note sings, bass holds, inner notes sit back.</p>
-          <span class="lbl">DYNAMICS</span><input class="knob" id="hu-dynamics" type="range" min="0" max="100" step="1" aria-label="Dynamics"><span class="knob-val" id="hu-dynamics-v"></span>
-          <p>Note-to-note differences: no two fingers land exactly alike.</p>
-          <span class="lbl">DRIFT</span><input class="knob" id="hu-drift" type="range" min="0" max="100" step="1" aria-label="Drift"><span class="knob-val" id="hu-drift-v"></span>
-          <p>Each hit leans a bit louder or softer, wandering slowly like a player does.</p>
+        <h3 class="glow">HUMAN FEEL</h3>
+        <p style="opacity:.8;font-size:13px">Every note of a chord gets its own loudness, like a player's hand.</p>
+        <div class="human-row">
+          <span class="seg" role="radiogroup" aria-label="Human feel"><span class="bracket" aria-hidden="true">[</span><button class="t big" id="hu-off" type="button" role="radio" aria-checked="true">OFF</button><button class="t big" id="hu-on" type="button" role="radio" aria-checked="false">ON</button><span class="bracket" aria-hidden="true">]</span></span>
         </div>
-        <button class="t" id="hu-reset" type="button" style="justify-self:start">RESET DETAIL</button>
+        <div class="dial" id="hu-ctl">
+          <span class="lbl">AMOUNT</span><input class="knob" id="hu-amt" type="range" min="0" max="100" step="1" aria-label="Human amount"><span class="knob-val" id="hu-amt-v"></span>
+        </div>
+        <button class="t" id="hu-more" type="button" aria-expanded="false" aria-controls="hu-detail" style="justify-self:start">DETAIL ▸</button>
+        <div id="hu-detail" hidden style="display:grid;gap:10px">
+          <span class="lbl">AMOUNT SCALES ALL THREE · MIDDLE = STANDARD</span>
+          <div class="dial">
+            <span class="lbl">VOICING</span><input class="knob" id="hu-voicing" type="range" min="0" max="100" step="1" aria-label="Voicing"><span class="knob-val" id="hu-voicing-v"></span>
+            <p>The hand's shape: top note sings, bass holds, inner notes sit back.</p>
+            <span class="lbl">DYNAMICS</span><input class="knob" id="hu-dynamics" type="range" min="0" max="100" step="1" aria-label="Dynamics"><span class="knob-val" id="hu-dynamics-v"></span>
+            <p>Note-to-note differences: no two fingers land exactly alike.</p>
+            <span class="lbl">DRIFT</span><input class="knob" id="hu-drift" type="range" min="0" max="100" step="1" aria-label="Drift"><span class="knob-val" id="hu-drift-v"></span>
+            <p>Each hit leans a bit louder or softer, wandering slowly like a player does.</p>
+          </div>
+          <button class="t" id="hu-reset" type="button" style="justify-self:start">RESET DETAIL</button>
+        </div>
       </div>
 
       <div class="panel" id="panel-ideas" hidden role="dialog" aria-label="Ideas" style="top:auto;bottom:90px;left:60px;right:auto;width:470px">

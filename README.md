@@ -9,7 +9,7 @@ Designed & built by Diego Cuevas · Oscillate Audioworks · [theavidobserver.com
 - **Next-chord hints:** the scope shows which chords tend to come next, learned from pop progressions or from 368 J.S. Bach chorales.
 - **Capture-style recording:** press REC, play, press STOP. Tempo and loop length are read from your chords (not from when you pressed STOP); quantize is optional.
 - **Euclidean mode:** hold a chord and it plays in a Euclidean rhythm (steps, hits, rotate, grooves).
-- **Human feel:** a HUMAN switch and AMOUNT knob give every note of a chord its own loudness (top note sings, inner notes sit back, small note-to-note differences, a slow hit-to-hit drift). DETAIL ▸ opens Voicing / Dynamics / Drift. Recorded loops and saved MIDI keep exactly what you played; IDEAS loops follow the switch. The browser synth responds to velocity (louder and brighter).
+- **Human feel:** HUMAN ▸ on the status line opens a switch and AMOUNT knob that give every note of a chord its own loudness (top note sings, inner notes sit back, small note-to-note differences, a slow hit-to-hit drift). DETAIL ▸ opens Voicing / Dynamics / Drift. Recorded loops and saved MIDI keep exactly what you played; IDEAS loops follow the switch. The browser synth responds to velocity (louder and brighter).
 - **Notes mode:** every key plays one in-scale note (like Ableton's Scale device) on MIDI channel 2, to play melodies over the loop.
 - **Ableton:** as a Max for Live MIDI effect it follows Live's transport and grid, and the tempo you play becomes Live's tempo. In the browser it sends MIDI to Ableton over the IAC Driver, with MIDI Clock.
 

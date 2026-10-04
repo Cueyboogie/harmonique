@@ -272,6 +272,9 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
     $('hu-on').setAttribute('aria-checked', String(h.on));
     $('hu-off').setAttribute('aria-checked', String(!h.on));
     $('hu-ctl').style.opacity = h.on ? '' : '.4';
+    const st = $('st-human');
+    st.textContent = `HUMAN ▸ ${h.on ? `${Math.round(h.amount * 100)}%` : 'OFF'}`;
+    st.classList.toggle('lit', h.on);
     setKnob('hu-amt', h.amount);
     for (const d of HUMAN_DIALS) setKnob(`hu-${d}`, h[d]);
   }
@@ -397,7 +400,20 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
   $<HTMLInputElement>('hu-amt').oninput = (e) => c.setHuman({ on: true, amount: Number((e.target as HTMLInputElement).value) / 100 });
   for (const d of HUMAN_DIALS) $<HTMLInputElement>(`hu-${d}`).oninput = (e) => c.setHuman({ [d]: Number((e.target as HTMLInputElement).value) / 100 });
   $('hu-reset').onclick = () => c.setHuman({ voicing: 0.5, dynamics: 0.5, drift: 0.5 });
-  $('hu-more').onclick = () => openPanel('panel-human');
+  $('hu-more').onclick = () => {
+    const open = $('hu-detail').hidden;
+    $('hu-detail').hidden = !open;
+    $('hu-more').textContent = open ? 'DETAIL ▾' : 'DETAIL ▸';
+    $('hu-more').setAttribute('aria-expanded', String(open));
+  };
+  $('st-human').onclick = () => {
+    // The panel opens under the button, wherever the status line put it.
+    const b = $('st-human'), scr = b.closest('.screen')!;
+    const x = b.getBoundingClientRect().left - scr.getBoundingClientRect().left;
+    const scale = scr.getBoundingClientRect().width / (scr as HTMLElement).offsetWidth;
+    $('panel-human').style.left = `${Math.max(20, Math.min(x / scale - 20, (scr as HTMLElement).offsetWidth - 460))}px`;
+    openPanel('panel-human');
+  };
   $('style').onclick = () => c.set('style', c.style === 'pop' ? 'bach' : 'pop');
   $('generate').onclick = () => { c.generate(); $('panel-ideas').hidden = true; };
   $('panic').onclick = () => c.panic();
