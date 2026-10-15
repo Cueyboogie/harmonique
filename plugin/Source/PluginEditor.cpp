@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "LogoPath.h"
+#include <map>
 #include <MiniFonts.h>
 
 using namespace hq;
@@ -67,7 +68,16 @@ namespace
         return { weight <= 400 ? f.mono400 : f.mono500, px, tracking, false };
     }
 
-    juce::Font fontOf (const juce::Typeface::Ptr& face, float px) { return juce::Font (juce::FontOptions (face).withPointHeight (px)); }
+    /** Fonts are cached: building one per character made every redraw slow. */
+    const juce::Font& fontOf (const juce::Typeface::Ptr& face, float px)
+    {
+        static std::map<std::pair<const void*, int>, juce::Font> cache;
+        const auto key = std::make_pair ((const void*) face.get(), juce::roundToInt (px * 8));
+        auto it = cache.find (key);
+        if (it == cache.end())
+            it = cache.emplace (key, juce::Font (juce::FontOptions (face).withPointHeight (px))).first;
+        return it->second;
+    }
 
     bool needsFallback (juce::juce_wchar c)
     {
@@ -80,18 +90,30 @@ namespace
         juce::GlyphArrangement out;
         float pen = x;
         const float track = st.tracking * st.px;
-        auto t = text.getCharPointer();
-        while (! t.isEmpty())
+        juce::String run;
+        bool runFallback = false;
+        // Lay out runs of characters that share a font (Barlow, or JetBrains Mono for ♭ ♯ ▸ ◂ →)
+        auto flush = [&]
+        {
+            if (run.isEmpty()) return;
+            const auto& font = fontOf (runFallback ? Faces::get().mono400 : st.face, runFallback ? st.px * 0.92f : st.px);
+            juce::GlyphArrangement ga;
+            ga.addLineOfText (font, run, pen, baseline);
+            if (track > 0.0f)
+                for (int i = 0; i < ga.getNumGlyphs(); ++i)
+                    ga.getGlyph (i).moveBy (track * (float) i, 0.0f);
+            pen += juce::GlyphArrangement::getStringWidth (font, run) + track * (float) run.length();
+            out.addGlyphArrangement (ga);
+            run.clear();
+        };
+        for (auto t = text.getCharPointer(); ! t.isEmpty();)
         {
             const auto c = t.getAndAdvance();
             const bool fb = st.fallback && needsFallback (c);
-            const auto font = fontOf (fb ? Faces::get().mono400 : st.face, fb ? st.px * 0.92f : st.px);
-            juce::GlyphArrangement ga;
-            ga.addLineOfText (font, juce::String::charToString (c), pen, baseline);
-            const float w = juce::GlyphArrangement::getStringWidth (font, juce::String::charToString (c));
-            out.addGlyphArrangement (ga);
-            pen += w + track;
+            if (fb != runFallback) { flush(); runFallback = fb; }
+            run += juce::String::charToString (c);
         }
+        flush();
         advance = pen - x;
         return out;
     }
@@ -161,7 +183,7 @@ HarmoniqueEditor::HarmoniqueEditor (HarmoniqueProcessor& p)
     refreshModel();
     setResizable (false, false);
     setSize ((int) W, (int) H);
-    startTimerHz (30);
+    startTimerHz (60);
 }
 
 HarmoniqueEditor::~HarmoniqueEditor()
@@ -172,6 +194,8 @@ HarmoniqueEditor::~HarmoniqueEditor()
 
 void HarmoniqueEditor::changeListenerCallback (juce::ChangeBroadcaster*)
 {
+    // Settings changed elsewhere (the project was loaded). A click here has already redrawn: don't draw twice.
+    if (processor.getSettings() == settings) return;
     refreshModel();
     rebuild();
 }
@@ -210,8 +234,11 @@ bool HarmoniqueEditor::pullDisplay()
 
 void HarmoniqueEditor::timerCallback()
 {
-    if (pullDisplay()) rebuild();
-    else if (! reduceMotion) repaint();   // the flicker: only re-composites the cached layers
+    if (pullDisplay()) { rebuild(); return; }
+    if (reduceMotion) return;
+    // The flicker: re-composite only when its brightness has visibly moved (a few times a second, not 30).
+    const int level = juce::roundToInt (flickerOpacity() * 200.0f);
+    if (level != flickerLevel) { flickerLevel = level; repaint(); }
 }
 
 float HarmoniqueEditor::flickerOpacity() const
@@ -235,22 +262,28 @@ void HarmoniqueEditor::rebuild()
     float s = 1.0f;
     if (auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForRect (getScreenBounds()))
         s = (float) d->scale;
+    if (testScale > 0) s = testScale;
     s = juce::jlimit (1.0f, 3.0f, s);
     renderScale = s;
     const int w = juce::roundToInt (W * s), h = juce::roundToInt (H * s);
     const auto p = juce::Colour (themes[settings.theme].p);
 
+    // The bezel, screen, scanlines and vignette only change with the theme or the display.
+    if (background.getWidth() != w || frameTheme != settings.theme)
     {
+        frameTheme = settings.theme;
         background = juce::Image (juce::Image::ARGB, w, h, true);
-        juce::Graphics g (background);
-        g.addTransform (juce::AffineTransform::scale (s));
-        drawBackground (g);
-    }
-    {
+        {
+            juce::Graphics g (background);
+            g.addTransform (juce::AffineTransform::scale (s));
+            drawBackground (g);
+        }
         overlay = juce::Image (juce::Image::ARGB, w, h, true);
-        juce::Graphics g (overlay);
-        g.addTransform (juce::AffineTransform::scale (s));
-        drawOverlay (g);
+        {
+            juce::Graphics g (overlay);
+            g.addTransform (juce::AffineTransform::scale (s));
+            drawOverlay (g);
+        }
     }
 
     juce::Image content (juce::Image::ARGB, w, h, true);
@@ -261,12 +294,70 @@ void HarmoniqueEditor::rebuild()
         listRegions.clear();
         drawContent (g);
     }
-    // Phosphor glow: p at 4 px, then p at 60 % at 12 px, under everything drawn in phosphor.
+
+    // Phosphor glow: p at 60 % / 12 px and p at 4 px under everything drawn in phosphor. Both glows are one colour,
+    // so they're computed as a brightness mask on a half-size copy (logical pixels), blurred, combined, scaled up by
+    // hand (bilinear) and filled with p once: same look as two full-size blurs at a fraction of the work.
     composite = juce::Image (juce::Image::ARGB, w, h, true);
     {
+        constexpr float f = 0.5f;
+        const int gw = juce::roundToInt (W * f), gh = juce::roundToInt (H * f);
+        juce::Image small (juce::Image::ARGB, gw, gh, true);
+        {
+            juce::Graphics sg (small);
+            sg.setImageResamplingQuality (juce::Graphics::lowResamplingQuality);
+            sg.drawImage (content, juce::Rectangle<float> (0, 0, (float) gw, (float) gh));
+        }
+        auto wide = small.convertedToFormat (juce::Image::SingleChannel);
+        auto tight = wide.createCopy();
+        wide.getPixelData()->applySingleChannelBoxBlurEffect (juce::roundToInt (12 * f));
+        tight.getPixelData()->applySingleChannelBoxBlurEffect (juce::roundToInt (4 * f));
+
+        {
+            const juce::Image::BitmapData wd (wide, juce::Image::BitmapData::readOnly);
+            const juce::Image::BitmapData td (tight, juce::Image::BitmapData::readOnly);
+            const juce::Image::BitmapData cd (composite, juce::Image::BitmapData::writeOnly);
+            // combined glow at half size: wide at 60 %, tight at 90 % over it
+            std::vector<float> a ((size_t) (gw * gh));
+            for (int y = 0; y < gh; ++y)
+                for (int x = 0; x < gw; ++x)
+                {
+                    const float aw = 0.6f * *wd.getPixelPointer (x, y) / 255.0f;
+                    const float at = 0.9f * *td.getPixelPointer (x, y) / 255.0f;
+                    a[(size_t) (y * gw + x)] = aw + at * (1.0f - aw);
+                }
+            // scale up (bilinear) straight into the composite as p × glow, premultiplied
+            std::vector<int> xi ((size_t) w);
+            std::vector<float> xt ((size_t) w);
+            for (int x = 0; x < w; ++x)
+            {
+                const float fx = juce::jlimit (0.0f, (float) gw - 1.001f, (x + 0.5f) * gw / (float) w - 0.5f);
+                xi[(size_t) x] = (int) fx;
+                xt[(size_t) x] = fx - (float) (int) fx;
+            }
+            const float pr = p.getFloatRed() * 255.0f, pg = p.getFloatGreen() * 255.0f, pb = p.getFloatBlue() * 255.0f;
+            for (int y = 0; y < h; ++y)
+            {
+                const float fy = juce::jlimit (0.0f, (float) gh - 1.001f, (y + 0.5f) * gh / (float) h - 0.5f);
+                const int y0 = (int) fy;
+                const float ty = fy - (float) y0;
+                const float* r0 = a.data() + y0 * gw;
+                const float* r1 = r0 + gw;
+                auto* line = cd.getLinePointer (y);
+                for (int x = 0; x < w; ++x)
+                {
+                    const int x0 = xi[(size_t) x];
+                    const float tx = xt[(size_t) x];
+                    const float top = r0[x0] + (r0[x0 + 1] - r0[x0]) * tx;
+                    const float bot = r1[x0] + (r1[x0 + 1] - r1[x0]) * tx;
+                    const float al = top + (bot - top) * ty;
+                    auto* px = reinterpret_cast<juce::PixelARGB*> (line + x * cd.pixelStride);
+                    px->setARGB ((juce::uint8) (al * 255.0f + 0.5f), (juce::uint8) (pr * al + 0.5f),
+                                 (juce::uint8) (pg * al + 0.5f), (juce::uint8) (pb * al + 0.5f));
+                }
+            }
+        }
         juce::Graphics g (composite);
-        juce::DropShadow (p.withAlpha (0.6f), juce::roundToInt (12 * s), {}).drawForImage (g, content);
-        juce::DropShadow (p.withAlpha (0.9f), juce::roundToInt (4 * s), {}).drawForImage (g, content);
         g.drawImageAt (content, 0, 0);
     }
     repaint();
@@ -313,15 +404,30 @@ void HarmoniqueEditor::drawBackground (juce::Graphics& g)
                              juce::Colour (0xff050302), screen.getX(), screen.getY() + screen.getHeight() * 0.45f, true);
     g.setGradientFill (rg);
     g.fillPath (sp);
-    // inner shadow, 60 px rgba(0,0,0,.9)
-    g.saveState();
-    g.reduceClipRegion (sp);
-    juce::Path ring;
-    ring.addRectangle (screen.expanded (80));
-    ring.addPath (sp);
-    ring.setUsingNonZeroWinding (false);
-    juce::DropShadow (juce::Colours::black.withAlpha (0.9f), 60, {}).drawForPath (g, ring);
-    g.restoreState();
+    // inner shadow, 60 px rgba(0,0,0,.9) — blurred at 1/4 resolution (it's very soft) and scaled up
+    {
+        constexpr float q = 0.25f;
+        juce::Path ring;
+        ring.addRectangle (screen.expanded (80));
+        ring.addPath (sp);
+        ring.setUsingNonZeroWinding (false);
+        juce::Image mask (juce::Image::ARGB, (int) (W * q), (int) (H * q), true);
+        {
+            juce::Graphics mg (mask);
+            mg.addTransform (juce::AffineTransform::scale (q));
+            mg.setColour (juce::Colours::black);
+            mg.fillPath (ring);
+        }
+        juce::Image shadow (juce::Image::ARGB, mask.getWidth(), mask.getHeight(), true);
+        {
+            juce::Graphics shg (shadow);
+            juce::DropShadow (juce::Colours::black.withAlpha (0.9f), (int) (60 * q), {}).drawForImage (shg, mask);
+        }
+        g.saveState();
+        g.reduceClipRegion (sp);
+        g.drawImage (shadow, juce::Rectangle<float> (0, 0, W, H));
+        g.restoreState();
+    }
 }
 
 void HarmoniqueEditor::drawOverlay (juce::Graphics& g)

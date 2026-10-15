@@ -30,6 +30,8 @@ public:
     juce::Image snapshot();
     /** For the tests: click at a point of the 900 × 420 screen. */
     void clickAt (juce::Point<float>);
+    /** For the tests: render as if on a display with this scale (0 = the real display). */
+    float testScale = 0.0f;
     /** For the tests: where a control is (centre), or (−1, −1). */
     juce::Point<float> centreOf (int hit, int arg = 0) const;
 
@@ -86,6 +88,7 @@ private:
 
     juce::Image background, overlay, composite;
     float renderScale = 1.0f;
+    int frameTheme = -1, flickerLevel = -1;
     bool reduceMotion = false;
     double startMs = juce::Time::getMillisecondCounterHiRes();
     juce::TooltipWindow tooltips { this, 500 };

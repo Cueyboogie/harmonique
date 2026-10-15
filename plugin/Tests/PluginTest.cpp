@@ -123,6 +123,26 @@ namespace
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI gui;
+    if (argc > 1 && juce::String (argv[1]) == "--bench")
+    {
+        // How long one screen update takes (a click, a key, a hover), at 1x and on a Retina / 5K display (2x).
+        HarmoniqueProcessor p;
+        std::unique_ptr<HarmoniqueEditor> ed (dynamic_cast<HarmoniqueEditor*> (p.createEditor()));
+        for (float sc : { 1.0f, 2.0f })
+        {
+            ed->testScale = sc;
+            ed->snapshot();
+            const int n = 20;
+            const double t0 = juce::Time::getMillisecondCounterHiRes();
+            for (int i = 0; i < n; ++i) ed->clickAt (ed->centreOf ((int) Hit::invert));
+            std::cout << "  update at " << sc << "x: " << (juce::Time::getMillisecondCounterHiRes() - t0) / n << " ms\n";
+            juce::Image frame (juce::Image::ARGB, 900 * (int) sc, 420 * (int) sc, true);
+            const double t1 = juce::Time::getMillisecondCounterHiRes();
+            for (int i = 0; i < n; ++i) { juce::Graphics g (frame); g.addTransform (juce::AffineTransform::scale (sc)); ed->paint (g); }
+            std::cout << "  repaint (flicker) at " << sc << "x: " << (juce::Time::getMillisecondCounterHiRes() - t1) / n << " ms\n";
+        }
+        return 0;
+    }
     const juce::File shots = argc > 1 ? juce::File::getCurrentWorkingDirectory().getChildFile (argv[1]) : juce::File();
 
     std::cout << "1. hold A for 2 s\n";
