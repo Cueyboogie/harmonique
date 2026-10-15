@@ -12,6 +12,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A new push to the same branch cancels the run still in progress.
+concurrency:
+  group: plugin-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Tests, golden engine check, Linux VST3
@@ -31,7 +36,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends libasound2-dev libfreetype-dev libfontconfig1-dev \
             libxrandr-dev libxinerama-dev libxcursor-dev libxcomposite-dev libglu1-mesa-dev xvfb
       - run: cmake -S plugin -B build -DCMAKE_BUILD_TYPE=Release -DHARMONIQUE_TESTS=ON -DHARMONIQUE_COPY_AFTER_BUILD=OFF
-      - run: cmake --build build --parallel --target harmonique_engine_test harmonique_plugin_test HarmoniqueMini_VST3
+      - run: cmake --build build --parallel 4 --target harmonique_engine_test harmonique_plugin_test HarmoniqueMini_VST3
       - name: C++ engine plays exactly what the TypeScript engine plays
         run: ./build/harmonique_engine_test_artefacts/Release/harmonique_engine_test golden.json
       - name: Stuck-key test
@@ -47,6 +52,7 @@ jobs:
   macos:
     name: macOS AU + VST3
     runs-on: macos-15
+    timeout-minutes: 90
     env:
       MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
     steps:
@@ -54,7 +60,7 @@ jobs:
       - name: Build (universal, Apple silicon + Intel)
         run: |
           cmake -S plugin -B build -DCMAKE_BUILD_TYPE=Release -DHARMONIQUE_TESTS=ON -DHARMONIQUE_COPY_AFTER_BUILD=ON
-          cmake --build build --parallel --config Release
+          cmake --build build --parallel 3 --config Release --target HarmoniqueMini_All HarmoniqueMiniMidiFX_All harmonique_plugin_test
       - name: Stuck-key test
         run: ./build/harmonique_plugin_test_artefacts/Release/harmonique_plugin_test screenshots
       - name: Sign with Developer ID (when the Apple secrets are set)
@@ -117,7 +123,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cmake -S plugin -B build -DHARMONIQUE_COPY_AFTER_BUILD=OFF
-      - run: cmake --build build --parallel --config Release --target HarmoniqueMini_VST3
+      - run: cmake --build build --parallel 4 --config Release --target HarmoniqueMini_VST3
       - uses: actions/upload-artifact@v4
         with:
           name: Harmonique-Mini-Windows-VST3
