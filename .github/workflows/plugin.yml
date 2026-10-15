@@ -107,7 +107,8 @@ jobs:
           ditto out/"Harmonique Mini.component" pkgroot/Library/Audio/Plug-Ins/Components/"Harmonique Mini.component"
           ditto out/"Harmonique Mini MIDI FX.component" pkgroot/Library/Audio/Plug-Ins/Components/"Harmonique Mini MIDI FX.component"
           pkgbuild --analyze --root pkgroot components.plist
-          n=$(/usr/libexec/PlistBuddy -c "Print" components.plist | grep -c "BundleIsRelocatable")
+          cat components.plist
+          n=$(/usr/libexec/PlistBuddy -c "Print" components.plist | grep -c "BundleIsRelocatable" || true)
           for ((i = 0; i < n; i++)); do /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" components.plist; done
           pkgbuild --root pkgroot --component-plist components.plist --identifier com.oscillateaudioworks.harmoniquemini \
                    --version 0.2.0 --install-location / "Harmonique Mini Installer.pkg"
