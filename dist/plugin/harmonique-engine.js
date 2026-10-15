@@ -719,9 +719,11 @@
   ];
 
   // engine/take.ts
-  function captureTempo(onsetsMs, fallbackBpm = 110, min = 70, max = 170) {
+  var isPow2 = (n) => (n & n - 1) === 0;
+  function captureTempo(onsetsMs, fallbackBpm = 110, min = 70, max = 170, end) {
     const on = [...new Set(onsetsMs.map((t) => Math.round(t)))].filter((t) => t > 90).sort((a, b2) => a - b2);
-    if (!on.length) return { bpm: fallbackBpm, confident: false };
+    const barsAt = (bpm) => Math.max(1, Math.round((end?.hi ?? 0) / (24e4 / bpm)));
+    if (!on.length) return { bpm: fallbackBpm, bars: barsAt(fallbackBpm), confident: false };
     const posCost = (k) => {
       const p = (k % 4 + 4) % 4;
       if (p === 0) return 0;
@@ -730,38 +732,50 @@
       if (Number.isInteger(p * 2)) return 0.8;
       return 1.2;
     };
-    let best = { bpm: fallbackBpm, score: Infinity };
+    const last = on[on.length - 1];
+    const hasEnd = end !== void 0 && end.hi > last;
+    let best = { bpm: fallbackBpm, bars: barsAt(fallbackBpm), score: Infinity };
     for (let t = min; t <= max; t += 0.25) {
       const beat0 = 6e4 / t;
       const ks = on.map((x) => Math.max(0.25, Math.round(x / beat0 * 4) / 4));
-      const beat = ks.reduce((s, k, i) => s + k * on[i], 0) / ks.reduce((s, k) => s + k * k, 0);
+      const kLast = ks[ks.length - 1];
+      const into = (x) => hasEnd ? Math.min(end.hi, Math.max(end.lo, x)) : x;
+      const kEnd = hasEnd ? 4 * Math.max(Math.round(into(4 * beat0 * Math.round((end.lo + end.hi) / 2 / beat0 / 4)) / beat0 / 4), Math.floor(kLast / 4) + 1) : 0;
+      const pts = ks.map((k, i) => ({ k, t: on[i], w: 1 }));
+      if (hasEnd) pts.push({ k: kEnd, t: into(kEnd * beat0), w: 2 });
+      const beat = pts.reduce((s, p) => s + p.w * p.k * p.t, 0) / pts.reduce((s, p) => s + p.w * p.k * p.k, 0);
       const bpm = 6e4 / beat;
       if (bpm < min * 0.98 || bpm > max * 1.02) continue;
       const errMs = on.map((x, i) => x - ks[i] * beat);
       const timing = errMs.reduce((s, e) => s + (e / 35) ** 2, 0) / on.length;
       const metric = ks.reduce((s, k) => s + posCost(k), 0) / ks.length;
       const prior = 0.8 * Math.log2(bpm / 110) ** 2;
-      const score = timing + metric + prior;
-      if (score < best.score) best = { bpm, score };
+      const endFit = hasEnd ? ((into(kEnd * beat) - kEnd * beat) / beat / 0.5) ** 2 + (isPow2(kEnd / 4) ? 0 : 0.15) : 0;
+      const score = timing + metric + prior + endFit;
+      if (score < best.score) best = { bpm, bars: hasEnd ? kEnd / 4 : barsAt(bpm), score };
     }
-    return { bpm: Math.round(best.bpm * 10) / 10, confident: on.length >= 2 };
+    return { bpm: Math.round(best.bpm * 10) / 10, bars: best.bars, confident: on.length >= 2 };
   }
   function phraseEnd(raw) {
     const on = [...new Set(raw.map((e) => Math.round(e.startMs)))].sort((a, b2) => a - b2).filter((t, i, a) => i === 0 || t - a[i - 1] > 90);
     const last = raw.reduce((m, e) => e.startMs >= m.startMs ? e : m, raw[0]);
     const lastRelease = Math.max(...raw.map((e) => e.startMs + e.lengthMs));
-    if (on.length < 2) return lastRelease;
-    return last.startMs + (on[on.length - 1] - on[on.length - 2]);
+    if (on.length < 2) return { lo: lastRelease, hi: lastRelease };
+    const step = last.startMs + (on[on.length - 1] - on[on.length - 2]);
+    const into = on[on.length - 1] - on[on.length - 2];
+    return lastRelease > step ? { lo: lastRelease, hi: lastRelease + 0.25 * into } : { lo: lastRelease, hi: step };
   }
   function takeFromRecording(raw, _durationMs, fixedBpm, fallbackBpm = 110) {
     const t0 = fixedBpm || !raw.length ? 0 : Math.min(...raw.map((e) => e.startMs));
     const evs = raw.map((e) => ({ ...e, startMs: e.startMs - t0 }));
-    const endMs = evs.length ? phraseEnd(evs) : 0;
-    const bpm = fixedBpm ?? captureTempo(evs.map((e) => e.startMs), fallbackBpm).bpm;
+    const end = evs.length ? phraseEnd(evs) : { lo: 0, hi: 0 };
+    const fit = fixedBpm ? null : captureTempo(evs.map((e) => e.startMs), fallbackBpm, 70, 170, end);
+    const bpm = fixedBpm ?? fit.bpm;
     const beatMs = 6e4 / bpm;
     const lastOnset = Math.max(0, ...evs.map((e) => e.startMs / beatMs));
     const lastRelease = Math.max(0, ...evs.map((e) => (e.startMs + e.lengthMs) / beatMs));
-    const bars = Math.max(1, Math.ceil((lastOnset + 0.25) / 4), Math.round(endMs / beatMs / 4), Math.round((lastRelease - 1) / 4));
+    const fixedBars = Math.max(1, Math.ceil((lastOnset + 0.25) / 4), Math.round(end.hi / beatMs / 4), Math.round((lastRelease - 1) / 4));
+    const bars = fit ? Math.max(fit.bars, Math.ceil((lastOnset + 0.25) / 4)) : fixedBars;
     const beats = bars * 4;
     const events = evs.filter((e) => e.startMs / beatMs < beats).map((e) => ({
       start: e.startMs / beatMs,

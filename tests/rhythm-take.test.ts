@@ -218,3 +218,31 @@ describe('loops close without dead air', () => {
     expect(t.events[3].start + t.events[3].length).toBeCloseTo(16, 5);
   });
 });
+
+describe('capture fits the loop to the phrase (played freely, not to a click)', () => {
+  it('a phrase that sits between bar lines at the changes\' tempo still closes on a bar line, without dead air', () => {
+    // At 85 BPM these are 0, ⅔, 1⅓, 2, 3 beats: the old fit read 128 BPM and padded the loop to 2 bars
+    // with the last chord ringing for 3½ beats.
+    const b = 60000 / 85;
+    const raw = [0, 2 / 3, 4 / 3, 2, 3].map((beat, i) => ({ startMs: beat * b, lengthMs: 0.5 * b, notes: [60 + i], velocity: 90 }));
+    const t = takeFromRecording(raw, 3.5 * b + 2000);
+    const loopMs = (t.beats * 60000) / t.bpm;
+    expect(Math.abs(loopMs - 4 * b)).toBeLessThan(60); // comes round one step after the last chord
+  });
+  it('a syncopated phrase keeps its tempo and closes on the next bar line', () => {
+    const b = 60000 / 124;
+    const raw = [0, 1.5, 3, 4, 5.5, 7].map((beat, i) => ({ startMs: beat * b + [0, 15, -10, 20, -18, 8][i], lengthMs: 0.9 * b, notes: [60 + i], velocity: 90 }));
+    const t = takeFromRecording(raw, 12 * b);
+    expect(t.beats).toBe(8);
+    expect(Math.abs(t.bpm - 124)).toBeLessThan(1.5);
+  });
+  it('waiting before STOP changes nothing', () => {
+    const raw = [0, 380, 910, 1300, 1720].map((ms, i) => ({ startMs: ms, lengthMs: 200, notes: [60 + i], velocity: 90 }));
+    const a = takeFromRecording(raw, 2200);
+    const z = takeFromRecording(raw, 5000);
+    expect([a.bpm, a.beats]).toEqual([z.bpm, z.beats]);
+    const loopMs = (a.beats * 60000) / a.bpm;
+    expect(loopMs).toBeGreaterThan(1720 + 200);
+    expect(loopMs).toBeLessThan(1720 + 420 + 150);
+  });
+});

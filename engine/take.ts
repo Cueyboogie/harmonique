@@ -101,10 +101,16 @@ export function detectTempo(onsetsMs: number[], durationMs: number, min = 70, ma
  * squares, and scores: how close the changes sit to the grid (ms), how musical their positions are
  * (on a bar line best, then half bar, beat, 8th, 16th), and a gentle pull towards ~110 BPM.
  * `onsetsMs` are measured from the first chord (the first chord is the downbeat).
+ *
+ * `end` (where the phrase may come round to its first chord, see `phraseEnd`): tempo and loop length are
+ * then fitted together, like Ableton's Capture. The loop end must land on a bar line, so a phrase played
+ * freely (not to a click) gets the tempo that makes it exactly whole bars, instead of a tempo that only
+ * fits the changes and leaves part of a bar of dead air before the loop comes round.
  */
-export function captureTempo(onsetsMs: number[], fallbackBpm = 110, min = 70, max = 170): { bpm: number; confident: boolean } {
+export function captureTempo(onsetsMs: number[], fallbackBpm = 110, min = 70, max = 170, end?: PhraseEnd): { bpm: number; bars: number; confident: boolean } {
   const on = [...new Set(onsetsMs.map((t) => Math.round(t)))].filter((t) => t > 90).sort((a, b) => a - b);
-  if (!on.length) return { bpm: fallbackBpm, confident: false };
+  const barsAt = (bpm: number) => Math.max(1, Math.round((end?.hi ?? 0) / (240000 / bpm)));
+  if (!on.length) return { bpm: fallbackBpm, bars: barsAt(fallbackBpm), confident: false };
   const posCost = (k: number) => {
     const p = ((k % 4) + 4) % 4;
     if (p === 0) return 0;
@@ -113,33 +119,49 @@ export function captureTempo(onsetsMs: number[], fallbackBpm = 110, min = 70, ma
     if (Number.isInteger(p * 2)) return 0.8;
     return 1.2;
   };
-  let best = { bpm: fallbackBpm, score: Infinity };
+  const last = on[on.length - 1];
+  const hasEnd = end !== undefined && end.hi > last;
+  let best = { bpm: fallbackBpm, bars: barsAt(fallbackBpm), score: Infinity };
   for (let t = min; t <= max; t += 0.25) {
     const beat0 = 60000 / t;
     const ks = on.map((x) => Math.max(0.25, Math.round((x / beat0) * 4) / 4));
-    const beat = ks.reduce((s, k, i) => s + k * on[i], 0) / ks.reduce((s, k) => s + k * k, 0);
+    // The loop closes on the bar line nearest the phrase end, never on or before the last change.
+    const kLast = ks[ks.length - 1];
+    const into = (x: number) => (hasEnd ? Math.min(end.hi, Math.max(end.lo, x)) : x);
+    const kEnd = hasEnd ? 4 * Math.max(Math.round(into(4 * beat0 * Math.round((end.lo + end.hi) / 2 / beat0 / 4)) / beat0 / 4), Math.floor(kLast / 4) + 1) : 0;
+    const pts = ks.map((k, i) => ({ k, t: on[i], w: 1 }));
+    if (hasEnd) pts.push({ k: kEnd, t: into(kEnd * beat0), w: 2 });
+    const beat = pts.reduce((s, p) => s + p.w * p.k * p.t, 0) / pts.reduce((s, p) => s + p.w * p.k * p.k, 0);
     const bpm = 60000 / beat;
     if (bpm < min * 0.98 || bpm > max * 1.02) continue;
     const errMs = on.map((x, i) => x - ks[i] * beat);
     const timing = errMs.reduce((s, e) => s + (e / 35) ** 2, 0) / on.length;
     const metric = ks.reduce((s, k) => s + posCost(k), 0) / ks.length;
     const prior = 0.8 * Math.log2(bpm / 110) ** 2;
-    const score = timing + metric + prior;
-    if (score < best.score) best = { bpm, score };
+    // How far the phrase end misses the bar line, in beats: a whole beat off is a clearly worse fit.
+    const endFit = hasEnd ? ((into(kEnd * beat) - kEnd * beat) / beat / 0.5) ** 2 + (isPow2(kEnd / 4) ? 0 : 0.15) : 0;
+    const score = timing + metric + prior + endFit;
+    if (score < best.score) best = { bpm, bars: hasEnd ? kEnd / 4 : barsAt(bpm), score };
   }
-  return { bpm: Math.round(best.bpm * 10) / 10, confident: on.length >= 2 };
+  return { bpm: Math.round(best.bpm * 10) / 10, bars: best.bars, confident: on.length >= 2 };
 }
 
-/** Where a phrase would loop back to its first chord: as far after the last change as the change before it.
- *  (Onsets measured from the first chord, ms.) With a single chord: where it was let go. */
-export function phraseEnd(raw: RawEvent[]): number {
+/** Where the loop may close (ms from the first chord): anywhere from where you let go of the last chord to as
+ *  far after it as the step into it (the step into the last chord is the best guess for the step out of it).
+ *  Holding the last chord past that means you wanted it longer: then it closes where (or just after) you let go. */
+export interface PhraseEnd { lo: number; hi: number }
+
+/** Where a phrase would loop back to its first chord (see `PhraseEnd`). With a single chord: where it was let go. */
+export function phraseEnd(raw: RawEvent[]): PhraseEnd {
   const on = [...new Set(raw.map((e) => Math.round(e.startMs)))].sort((a, b) => a - b)
     .filter((t, i, a) => i === 0 || t - a[i - 1] > 90);
   const last = raw.reduce((m, e) => (e.startMs >= m.startMs ? e : m), raw[0]);
   const lastRelease = Math.max(...raw.map((e) => e.startMs + e.lengthMs));
-  if (on.length < 2) return lastRelease;
-  // The step into the last chord is the best guess for the step out of it (back to the first).
-  return last.startMs + (on[on.length - 1] - on[on.length - 2]);
+  if (on.length < 2) return { lo: lastRelease, hi: lastRelease };
+  const step = last.startMs + (on[on.length - 1] - on[on.length - 2]);
+  // Let go of a held chord a little before you meant the loop to come round, as players do.
+  const into = on[on.length - 1] - on[on.length - 2];
+  return lastRelease > step ? { lo: lastRelease, hi: lastRelease + 0.25 * into } : { lo: lastRelease, hi: step };
 }
 
 /**
@@ -147,21 +169,24 @@ export function phraseEnd(raw: RawEvent[]): number {
  *  - the first chord is beat 1 of bar 1;
  *  - the tempo comes from the chord changes (or `fixedBpm`: Live playing / Euclidean on);
  *  - the loop is a whole number of bars, set by your last chord (where it starts and roughly where you let
- *    go of it), so a late or early STOP never bends the loop.
+ *    go of it), so a late or early STOP never bends the loop. With a detected tempo, tempo and loop are
+ *    fitted together so the phrase comes round right on the bar line;
  * `fallbackBpm`: used when there's too little to read a tempo from (one chord).
  */
 export function takeFromRecording(raw: RawEvent[], _durationMs: number, fixedBpm?: number, fallbackBpm = 110): Take {
   // Detected tempo: your first chord is the downbeat. Fixed tempo: times are already measured from the grid (bar line).
   const t0 = fixedBpm || !raw.length ? 0 : Math.min(...raw.map((e) => e.startMs));
   const evs = raw.map((e) => ({ ...e, startMs: e.startMs - t0 }));
-  const endMs = evs.length ? phraseEnd(evs) : 0;
-  const bpm = fixedBpm ?? captureTempo(evs.map((e) => e.startMs), fallbackBpm).bpm;
+  const end = evs.length ? phraseEnd(evs) : { lo: 0, hi: 0 };
+  const fit = fixedBpm ? null : captureTempo(evs.map((e) => e.startMs), fallbackBpm, 70, 170, end);
+  const bpm = fixedBpm ?? fit!.bpm;
   const beatMs = 60000 / bpm;
   const lastOnset = Math.max(0, ...evs.map((e) => e.startMs / beatMs));
-  // Loop = whole bars, closing at the bar line nearest to where the phrase would come round again.
-  // Holding the last chord longer (about a bar or more) makes the loop longer.
+  // Fixed tempo (the grid can't move): whole bars, closing at the bar line nearest to where the phrase
+  // would come round again. Holding the last chord longer (about a bar or more) makes the loop longer.
   const lastRelease = Math.max(0, ...evs.map((e) => (e.startMs + e.lengthMs) / beatMs));
-  const bars = Math.max(1, Math.ceil((lastOnset + 0.25) / 4), Math.round(endMs / beatMs / 4), Math.round((lastRelease - 1) / 4));
+  const fixedBars = Math.max(1, Math.ceil((lastOnset + 0.25) / 4), Math.round(end.hi / beatMs / 4), Math.round((lastRelease - 1) / 4));
+  const bars = fit ? Math.max(fit.bars, Math.ceil((lastOnset + 0.25) / 4)) : fixedBars;
   const beats = bars * 4;
   const events = evs.filter((e) => e.startMs / beatMs < beats).map((e) => ({
     start: e.startMs / beatMs,
