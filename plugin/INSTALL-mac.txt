@@ -1,17 +1,17 @@
-HARMONIQUE — plugin install (macOS)
+HARMONIQUE MINI — install (macOS)
 
 1. Copy the plugins:
-     Harmonique.component            →  ~/Library/Audio/Plug-Ins/Components/
-     Harmonique MIDI FX.component    →  ~/Library/Audio/Plug-Ins/Components/
-     Harmonique.vst3                 →  ~/Library/Audio/Plug-Ins/VST3/
+     Harmonique Mini.vst3                 →  ~/Library/Audio/Plug-Ins/VST3/
+     Harmonique Mini.component            →  ~/Library/Audio/Plug-Ins/Components/
+     Harmonique Mini MIDI FX.component    →  ~/Library/Audio/Plug-Ins/Components/   (Logic only)
    (~/Library is hidden: in Finder press Cmd+Shift+G and paste the path.)
 
-2. These builds aren't notarized yet, so macOS blocks them the first time. In Terminal:
-     xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/Harmonique*.component ~/Library/Audio/Plug-Ins/VST3/Harmonique.vst3
+2. If this build isn't notarized, macOS blocks it the first time ("Not Opened ... Done / Move to Trash"):
+   click Done, then in Terminal:
+     xattr -cr ~/Library/Audio/Plug-Ins/VST3/"Harmonique Mini.vst3" ~/Library/Audio/Plug-Ins/Components/"Harmonique Mini"*.component
+   (or System Settings → Privacy & Security → Open Anyway).
 
-3. Restart your DAW (Logic: it rescans Audio Units on launch).
-
-Ableton Live:  use the VST3 (Harmonique). Put it on a MIDI track, arm the track, then on a second
-               MIDI track with an instrument set MIDI From → the Harmonique track → "Harmonique".
-Logic Pro:     on a Software Instrument track, MIDI FX slot → Audio Units → Oscillate Audioworks →
-               Harmonique MIDI FX. The track's instrument plays what Harmonique sends.
+3. Ableton Live: Settings → Plug-Ins → turn on "Use VST3 Plug-in System Folders" (and Audio Units), Rescan.
+   Track 1: MIDI track with Harmonique Mini (Plug-Ins → VST3 or Audio Units → Oscillate Audioworks). Arm it.
+   Track 2: your synth. MIDI From = 1-Harmonique Mini → Harmonique Mini (second menu), Monitor = In.
+   Turn on Live's computer MIDI keyboard (M) and play A S D … — or use your controller.

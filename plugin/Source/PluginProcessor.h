@@ -1,30 +1,46 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include "Engine.h"
+#include "ChordPlayer.h"
 
 /*
-    Harmonique as an AU / VST3 plugin: a MIDI generator, like the Max for Live device.
+    Harmonique Mini: a MIDI-generating plugin (like Cthulhu / Scaler). It loads as an instrument on its
+    own MIDI track; another track listens to it (MIDI From → Harmonique). It makes no sound itself.
 
-        notes from the track ─► Engine (chords / notes / loop / Euclidean) ─► MIDI out (Ch 1 chords, Ch 2 notes)
-        CC, pitch bend, aftertouch ──────────── pass straight through ──────► MIDI out
-
-    Two builds share this code:
-      · "Harmonique"          an instrument with MIDI out (AU + VST3) — Ableton Live, Bitwig, Reaper, Cubase, FL…
-                              It makes no sound itself: route its MIDI to an instrument track.
-      · "Harmonique MIDI FX"  an AU MIDI effect for Logic Pro / GarageBand's MIDI FX slot.
+        keys (Live's computer MIDI keyboard / a controller / the on-screen keyboard)
+          → chord per key (Ch 1) or scale note (Ch 2), humanized, reference-counted → MIDI out
+        sustain, mod wheel, pitch bend, other CCs → passed through unchanged
 */
-class HarmoniqueProcessor final : public juce::AudioProcessor
+class HarmoniqueProcessor final : public juce::AudioProcessor,
+                                  public juce::ChangeBroadcaster   // settings changed (state restored, or the window changed them)
 {
 public:
+    /** Everything the user sets; saved with the project. Changed on the message thread only. */
+    struct Settings
+    {
+        int rootPc = 0;
+        hq::ScaleId scale = hq::ScaleId::ionian;
+        hq::ChordSize size = hq::ChordSize::seventh;
+        bool smooth = false;
+        hq::Spread spread = hq::Spread::close;
+        int inversion = 0;
+        bool notesMode = false;
+        int humanize = 0;          // 0 = OFF, 1..10 = 10%..100%
+        int theme = 0;             // AMBER, TEAL, ROSE, CREAM
+        bool operator== (const Settings&) const = default;
+    };
+
     HarmoniqueProcessor();
-    ~HarmoniqueProcessor() override = default;
+    ~HarmoniqueProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
-    void releaseResources() override {}
+    void releaseResources() override;
+    void reset() override;
     bool isBusesLayoutSupported (const BusesLayout&) const override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlockBypassed (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     using AudioProcessor::processBlock;
+    using AudioProcessor::processBlockBypassed;
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override                     { return true; }
@@ -44,22 +60,40 @@ public:
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
 
-    Engine& getEngine() { return engine; }
+    //==============================================================================
+    Settings getSettings() const;
+    void setSettings (const Settings&);
+
+    /** On-screen keyboard (message thread). */
+    void screenKey (int note, bool down);
+    const hq::PlayerDisplay& getDisplay() const { return display; }
+
+    static juce::String settingsToString (const Settings&);
+    static Settings settingsFromString (const juce::String&, Settings defaults);
 
 private:
     static BusesProperties buses();
-    /** Wall-clock time (Engine::nowMs) of this block's first sample, smoothed so host jitter doesn't move notes. */
-    double blockStartMs (int numSamples);
-    void scheduleOut (juce::MidiBuffer& out, double startMs, int numSamples);
+    void rebuildPlayMap();
+    void sendPanic (juce::MidiBuffer&, int pos);
 
-    Engine engine;
-    double sampleRate = 44100.0;
-    int64_t samplesDone = 0;
-    double clockOffset = 0.0;    // nowMs − sample time, ms
-    bool clockValid = false;
+    juce::CriticalSection settingsLock;
+    Settings settings;
 
-    /** MIDI from the engine that is due in a later block. Kept in time order. */
-    std::vector<Engine::MidiOut> pending;
+    // Settings → audio thread: written under the spin lock, copied by the audio thread when the version moves.
+    juce::SpinLock mapLock;
+    hq::PlayMap sharedMap;
+    hq::PlayMap audioMap;
+    std::atomic<int> mapVersion { 0 };
+
+    // On-screen keys → audio thread
+    juce::AbstractFifo screenFifo { 256 };
+    std::array<std::pair<int, bool>, 256> screenEvents {};
+
+    hq::ChordPlayer player;
+    hq::PlayerDisplay display;
+    std::atomic<bool> panicRequested { false };
+    bool wasPlaying = false;
+    bool lastNotesMode = false;
     juce::MidiBuffer scratch;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HarmoniqueProcessor)

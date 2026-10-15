@@ -10,3 +10,4 @@ export * from './bach-data';
 export * from './rhythm';
 export * from './take';
 export * from './notemode';
+export * from './humanize';

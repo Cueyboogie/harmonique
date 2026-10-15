@@ -39,8 +39,7 @@ function setHTML(el: Element, html: string) {
   el.innerHTML = html;
 }
 
-/** app = Mac app (Web MIDI) · web = public page · live = Max for Live · plugin = the AU / VST3 window. */
-export type HostMode = 'app' | 'web' | 'live' | 'plugin';
+export type HostMode = 'app' | 'web' | 'live';
 
 export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: string } = {}) {
   const mode: HostMode = opts.mode ?? 'app';
@@ -83,12 +82,6 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
     if (mode === 'live') {
       const d = m as unknown as { inCount?: number; outCount?: number; lastIn?: string };
       $('st-midi').textContent = m.status !== 'ready' ? 'ABLETON ▸ NO MAX LINK' : `ABLETON ▸ IN ${d.inCount ?? 0}${d.lastIn ? ` (${d.lastIn})` : ''} · OUT ${d.outCount ?? 0}`;
-      $('st-sync').hidden = $('st-sound').hidden = true;
-      return;
-    }
-    if (mode === 'plugin') {
-      const d = m as unknown as { inCount: number; outCount: number; lastIn: string };
-      $('st-midi').textContent = m.status !== 'ready' ? 'PLUGIN ▸ NOT CONNECTED' : `PLUGIN ▸ IN ${d.inCount}${d.lastIn ? ` (${d.lastIn})` : ''} · OUT ${d.outCount}`;
       $('st-sync').hidden = $('st-sound').hidden = true;
       return;
     }
@@ -197,22 +190,13 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
     ($('ideas') as HTMLButtonElement).disabled = false;
     const save = $<HTMLButtonElement>('save');
     save.disabled = !c.take;
-    save.hidden = window.self !== window.top || mode === 'live' || mode === 'plugin'; // downloads are blocked inside shared pages; in a DAW, record the track
+    save.hidden = window.self !== window.top || mode === 'live'; // downloads are blocked inside shared pages; in Live, record the track
   }
 
   function renderTempo() {
     const bpm = $<HTMLInputElement>('bpm');
     if (document.activeElement !== bpm) bpm.value = String(Math.round(c.bpm));
-    $('tempo-host').hidden = mode !== 'live' && mode !== 'plugin';
-    if (mode === 'plugin') {
-      // A plugin can't change the project's tempo: say what to set it to when they differ.
-      const host = (c as unknown as { host: { bpm: number; playing: boolean } }).host;
-      const differs = host.bpm > 0 && Math.round(host.bpm * 10) !== Math.round(c.bpm * 10);
-      $('tempo-host').textContent = differs ? `· SET PROJECT TO ${Math.round(c.bpm * 10) / 10}` : '· PROJECT TEMPO';
-      $('tempo-host').title = differs
-        ? 'Your playing found this tempo. Set your project to it; when the project plays, its tempo wins.'
-        : 'Tempo follows your project';
-    }
+    $('tempo-host').hidden = mode !== 'live';
     $('half').hidden = $('dbl').hidden = !c.take;
   }
 
@@ -374,7 +358,7 @@ export function mountMonitor(c: Controller, opts: { mode?: HostMode; exitHref?: 
   $('st-sound').onclick = () => { c.synth.enabled = !c.synth.enabled; if (!c.synth.enabled) c.synth.allOff(); render(); };
   $('st-phos').onclick = () => { phos = (phos + 1) % PHOSPHORS.length; applyPhosphor(); };
   const openPanel = (id: string) => { for (const pid of ['panel-midi', 'panel-ideas']) $(pid).hidden = pid !== id || !$(pid).hidden; };
-  $('st-midi').onclick = () => { if (mode !== 'live' && mode !== 'plugin') openPanel('panel-midi'); };
+  $('st-midi').onclick = () => { if (mode !== 'live') openPanel('panel-midi'); };
   if (opts.exitHref) {
     const ex = $<HTMLAnchorElement>('exit');
     ex.href = opts.exitHref;

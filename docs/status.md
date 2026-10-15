@@ -76,14 +76,13 @@
 
 - Latency: smallest audio buffer (`latencyHint: 0`), 3 ms attack, audio wakes on the first click/key, SOUND label shows the output delay in ms. Diego confirmed the lag was his AirPods (fine on speakers); the how-to panel now says wireless headphones add delay.
 
-## Built (session 6) — AU + VST3 plugin
-- **Harmonique is now a plugin** (`plugin/`, JUCE 8): **Harmonique** (VST3 + AU instrument with MIDI out: Ableton via VST3, Bitwig, Reaper, Cubase, FL) and **Harmonique MIDI FX** (AU MIDI effect for Logic / GarageBand). Same screen, same engine, same behaviour as the Live device.
-- How: the TypeScript engine + Controller run **inside the plugin** in QuickJS (`app/plugin/engine.ts` → `dist/plugin/harmonique-engine.js`) on their own thread, so it keeps playing with the window closed. The window is the monitor screen in a web view, drawing snapshots and sending actions back (`app/plugin/ui.ts`, `protocol.ts`).
-- Timing: the engine stamps every message; the plugin puts it on its exact sample. Headless real-time test: loop chords land within 0.04 ms of the project's beats, a key plays its chord one audio block later (~5 ms at 256), starting the project plays the loop from bar 1.
-- The project is the clock (tempo, play/stop, bar position). A plugin can't set the project tempo, so a tempo found from your playing shows **SET PROJECT TO …**. Settings + loop are saved with the project.
-- Shared change: locked to a host (Live device or plugin), starting the loop no longer skips a first chord whose beat has just passed; it goes out a few ms late instead of a loop later.
-- Checks: 378 tests; plugin test (`HARMONIQUE_TESTS`); pluginval strictness 8 passes (Linux VST3, incl. editor). macOS AU/VST3 are built, `auval`-ed and zipped by `.github/workflows/plugin.yml`.
-- Not yet: notarized installer; MIDI drag-out / Save MIDI in the plugin; offline bounce of the Harmonique track itself (record its MIDI instead).
+## Built (session 7) — Harmonique Mini, native VST3 / AU
+- **Native plugin** (`plugin/`, JUCE 8, C++), replacing the session-6 web-view plugin: the web view could take the keyboard from Live. Harmonique Mini: Layout B · Hero, 900 × 420, drawn natively (monitor bezel, scanlines, vignette, phosphor glow, flicker, embedded Barlow / JetBrains Mono / Righteous). The window never takes keyboard focus; Live's computer MIDI keyboard keeps working while you click.
+- **Engine ported to C++** (`Source/Music.*`): notes, scales, chords, chord map, voicing, voice leading, notes mode, hints. Golden test vs the TypeScript engine over every key × scale × size × spread × inversion (FIXED + SMOOTH), NOTES snap, hints, humanize: 641,730 checks, 0 mismatches.
+- **HUMANIZE** (new, `engine/humanize.ts` + C++ port): OFF…100%, each note delayed 0–30 ms (lowest first, a little random), velocity ±12, fresh every press; tests for the limits.
+- **No stuck notes** (`Source/ChordPlayer.*`): per-key note memory, reference counting, sample-accurate humanize queue, note-off always after its note-on, panic on transport stop / bypass / CHORDS ↔ NOTES / reset. Automated stuck-key test (spec section 9) passes; pluginval strictness 10 passes.
+- Settings + theme saved with the set; the last theme is the default for new instances. The key labels follow the octave you last played (Live doesn't report its Z / X octave).
+- Not yet: Live template / rack preset, signed + notarized build (workflow ready; needs an Apple Developer account), the full Harmonique in native form, 80 ms fade on lit keys.
 
 ## Next
 1. **Diego listens:** presets, Generate (Pop vs Bach, Tension, Color), hints, Smooth on/off. What sounds great, what doesn't.
