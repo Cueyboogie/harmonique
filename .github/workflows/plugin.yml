@@ -100,7 +100,24 @@ jobs:
           mkdir -p out
           cp -R ~/Library/Audio/Plug-Ins/Components/"Harmonique Mini.component" ~/Library/Audio/Plug-Ins/Components/"Harmonique Mini MIDI FX.component" \
                 ~/Library/Audio/Plug-Ins/VST3/"Harmonique Mini.vst3" plugin/INSTALL-mac.txt out/
+          # Installer: puts the plugins in /Library/Audio/Plug-Ins/{VST3,Components}. Installed files don't carry the
+          # download quarantine, so no "Not Opened" warnings for the plugins themselves.
+          mkdir -p pkgroot/Library/Audio/Plug-Ins/VST3 pkgroot/Library/Audio/Plug-Ins/Components
+          ditto out/"Harmonique Mini.vst3" pkgroot/Library/Audio/Plug-Ins/VST3/"Harmonique Mini.vst3"
+          ditto out/"Harmonique Mini.component" pkgroot/Library/Audio/Plug-Ins/Components/"Harmonique Mini.component"
+          ditto out/"Harmonique Mini MIDI FX.component" pkgroot/Library/Audio/Plug-Ins/Components/"Harmonique Mini MIDI FX.component"
+          pkgbuild --analyze --root pkgroot components.plist
+          n=$(/usr/libexec/PlistBuddy -c "Print" components.plist | grep -c "BundleIsRelocatable")
+          for ((i = 0; i < n; i++)); do /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" components.plist; done
+          pkgbuild --root pkgroot --component-plist components.plist --identifier com.oscillateaudioworks.harmoniquemini \
+                   --version 0.2.0 --install-location / "Harmonique Mini Installer.pkg"
+          cp "Harmonique Mini Installer.pkg" out/
+          rm -f Harmonique-Mini-macOS.zip
           ditto -c -k --sequesterRsrc out Harmonique-Mini-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Harmonique-Mini-Installer
+          path: Harmonique Mini Installer.pkg
       - name: Notarize (when the Apple secrets are set)
         if: env.MACOS_CERT_P12 != ''
         env:

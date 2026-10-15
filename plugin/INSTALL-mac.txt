@@ -1,17 +1,20 @@
 HARMONIQUE MINI — install (macOS)
 
-1. Copy the plugins:
+EASIEST: double-click "Harmonique Mini Installer.pkg".
+  If macOS says it can't be opened: right-click (Control-click) the .pkg → Open → Open.
+  It installs Harmonique Mini (VST3 + AU) and Harmonique Mini MIDI FX (AU, for Logic) into
+  /Library/Audio/Plug-Ins. It asks for your Mac password.
+
+BY HAND (instead of the installer): copy the plugins, as they are (don't open them), to
      Harmonique Mini.vst3                 →  ~/Library/Audio/Plug-Ins/VST3/
      Harmonique Mini.component            →  ~/Library/Audio/Plug-Ins/Components/
-     Harmonique Mini MIDI FX.component    →  ~/Library/Audio/Plug-Ins/Components/   (Logic only)
-   (~/Library is hidden: in Finder press Cmd+Shift+G and paste the path.)
+     Harmonique Mini MIDI FX.component    →  ~/Library/Audio/Plug-Ins/Components/
+  then in Terminal, one line at a time:
+     xattr -cr ~/Library/Audio/Plug-Ins/VST3/"Harmonique Mini.vst3"
+     xattr -cr ~/Library/Audio/Plug-Ins/Components/"Harmonique Mini.component"
 
-2. If this build isn't notarized, macOS blocks it the first time ("Not Opened ... Done / Move to Trash"):
-   click Done, then in Terminal:
-     xattr -cr ~/Library/Audio/Plug-Ins/VST3/"Harmonique Mini.vst3" ~/Library/Audio/Plug-Ins/Components/"Harmonique Mini"*.component
-   (or System Settings → Privacy & Security → Open Anyway).
-
-3. Ableton Live: Settings → Plug-Ins → turn on "Use VST3 Plug-in System Folders" (and Audio Units), Rescan.
-   Track 1: MIDI track with Harmonique Mini (Plug-Ins → VST3 or Audio Units → Oscillate Audioworks). Arm it.
-   Track 2: your synth. MIDI From = 1-Harmonique Mini → Harmonique Mini (second menu), Monitor = In.
-   Turn on Live's computer MIDI keyboard (M) and play A S D … — or use your controller.
+Ableton Live: Settings → Plug-Ins → turn on "Use VST3 Plug-in System Folders" (and Audio Units),
+  then hold Option and click Rescan. Harmonique Mini appears under Plug-Ins → VST3 → Oscillate Audioworks.
+  Track 1: MIDI track with Harmonique Mini. Arm it.
+  Track 2: your synth. MIDI From = 1-Harmonique Mini → Harmonique Mini (second menu), Monitor = In.
+  Turn on Live's computer MIDI keyboard (M) and play A S D … — or use your controller.
